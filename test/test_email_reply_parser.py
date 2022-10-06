@@ -123,30 +123,30 @@ class EmailMessageTest(unittest.TestCase):
         self.assertTrue("You can list the keys for the bucket" in message.reply)
 
     def test_reply_from_gmail(self):
-        with open('test/emails/email_gmail.txt') as f:
+        with open('emails/email_gmail.txt') as f:
             self.assertEqual('This is a test for inbox replying to a github message.',
                              EmailReplyParser.parse_reply(f.read()))
 
     def test_parse_out_just_top_for_outlook_reply(self):
-        with open('test/emails/email_2_1.txt') as f:
+        with open('emails/email_2_1.txt') as f:
             self.assertEqual("Outlook with a reply", EmailReplyParser.parse_reply(f.read()))
 
     def test_parse_out_just_top_for_outlook_with_reply_directly_above_line(self):
-        with open('test/emails/email_2_2.txt') as f:
+        with open('emails/email_2_2.txt') as f:
             self.assertEqual("Outlook with a reply directly above line", EmailReplyParser.parse_reply(f.read()))
 
     def test_parse_out_just_top_for_outlook_with_unusual_headers_format(self):
-        with open('test/emails/email_2_3.txt') as f:
+        with open('emails/email_2_3.txt') as f:
             self.assertEqual(
                 "Outlook with a reply above headers using unusual format",
                 EmailReplyParser.parse_reply(f.read()))
 
     def test_sent_from_iphone(self):
-        with open('test/emails/email_iPhone.txt') as email:
+        with open('emails/email_iPhone.txt') as email:
             self.assertTrue("Sent from my iPhone" not in EmailReplyParser.parse_reply(email.read()))
 
     def test_email_one_is_not_on(self):
-        with open('test/emails/email_one_is_not_on.txt') as email:
+        with open('emails/email_one_is_not_on.txt') as email:
             self.assertTrue(
                 "On Oct 1, 2012, at 11:55 PM, Dave Tapley wrote:" not in EmailReplyParser.parse_reply(email.read()))
 
@@ -192,9 +192,34 @@ class EmailMessageTest(unittest.TestCase):
     def get_email(self, name):
         """ Return EmailMessage instance
         """
-        with open('test/emails/%s.txt' % name) as f:
+        with open('emails/%s.txt' % name) as f:
             text = f.read()
         return EmailReplyParser.read(text)
+
+    def test_include_signature_true(self):
+        text = self.get_email('email_signature')
+        body = EmailReplyParser.cut_off_at_signature(text, include=True, word_limit=100)
+        assert body[69:82] == 'Kind regards,'
+
+    # def test_include_signature_false(self):
+    #     text = self.get_email('email_signature')
+    #     body = EmailReplyParser.cut_off_at_signature(text, include=False, word_limit=100)
+    #     assert body.endswith('email cut-off point.\n\n')
+    #
+    # def test_cut_off_default(self):
+    #     text = self.get_email('long_passage')
+    #     body = EmailReplyParser.cut_off_at_signature(text, word_limit=100)
+    #     assert body.endswith('"Now fax quiz Jack! " my')
+    #
+    # def test_cut_off_10_words(self):
+    #     text = self.get_email('long_passage')
+    #     body = EmailReplyParser.cut_off_at_signature(text, word_limit=10)
+    #     assert body.endswith('a lazy dog. DJs')
+    #
+    # def test_cut_off_500_words(self):
+    #     text = self.get_email('long_passage')
+    #     body = EmailReplyParser.cut_off_at_signature(text, word_limit=500)
+    #     assert body.endswith('Joaquin Phoenix was')
 
 
 if __name__ == '__main__':

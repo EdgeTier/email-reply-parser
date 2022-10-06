@@ -1,0 +1,12 @@
+Hi Mat,
+
+This is a sample email to test regex/email cut-off point.
+
+Kind regards,
+
+Perrin Aybara
+
+
+_______________________________________________
+perrinaybara@rollthedice.com
++202 5632 56532 35
