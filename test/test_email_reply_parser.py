@@ -74,7 +74,6 @@ class EmailMessageTest(unittest.TestCase):
 
     def test_multiline_reply_headers(self):
         message = self.get_email('email_1_6')
-        print(message.fragments[0].content)
         self.assertTrue('I get' in message.fragments[0].content)
         self.assertTrue('Sent' in message.fragments[1].content)
 
@@ -115,7 +114,7 @@ class EmailMessageTest(unittest.TestCase):
         msg = self.get_email('email_1_7')
         self.assertTrue(':+1:' in msg.fragments[0].content)
         self.assertTrue('On' in msg.fragments[1].content)
-        # self.assertTrue('Steps 0-2' in msg.fragments[1].content)
+        self.assertTrue('Steps 0-2' in msg.fragments[1].content)
 
     def test_reply_is_parsed(self):
         message = self.get_email('email_1_2')
