@@ -1,0 +1,10 @@
+Let's test this regex!
+
+Best wishes,
+
+Tom Bombadil
+
+But what happens if I keep typing here? Will it cut-off where it's supposed to after the sign-off, or will it
+include this and this and this and this and keep going forever and ever...
+
+Okay, not forever. But longer than we should have. We shall see.
