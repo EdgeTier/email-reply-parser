@@ -2,11 +2,10 @@ import os
 import sys
 import unittest
 import re
-
 import time
+from email_reply_parser import EmailReplyParser
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
-from email_reply_parser import EmailReplyParser
 
 
 class EmailMessageTest(unittest.TestCase):
@@ -76,7 +75,7 @@ class EmailMessageTest(unittest.TestCase):
     def test_multiline_reply_headers(self):
         message = self.get_email('email_1_6')
         self.assertTrue('I get' in message.fragments[0].content)
-        self.assertTrue('On' in message.fragments[1].content)
+        self.assertTrue('Sent' in message.fragments[1].content)
 
     def test_captures_date_string(self):
         message = self.get_email('email_1_4')
@@ -113,7 +112,6 @@ class EmailMessageTest(unittest.TestCase):
 
     def test_deals_with_windows_line_endings(self):
         msg = self.get_email('email_1_7')
-
         self.assertTrue(':+1:' in msg.fragments[0].content)
         self.assertTrue('On' in msg.fragments[1].content)
         self.assertTrue('Steps 0-2' in msg.fragments[1].content)
@@ -123,30 +121,30 @@ class EmailMessageTest(unittest.TestCase):
         self.assertTrue("You can list the keys for the bucket" in message.reply)
 
     def test_reply_from_gmail(self):
-        with open('test/emails/email_gmail.txt') as f:
+        with open('emails/email_gmail.txt') as f:
             self.assertEqual('This is a test for inbox replying to a github message.',
                              EmailReplyParser.parse_reply(f.read()))
 
     def test_parse_out_just_top_for_outlook_reply(self):
-        with open('test/emails/email_2_1.txt') as f:
+        with open('emails/email_2_1.txt') as f:
             self.assertEqual("Outlook with a reply", EmailReplyParser.parse_reply(f.read()))
 
     def test_parse_out_just_top_for_outlook_with_reply_directly_above_line(self):
-        with open('test/emails/email_2_2.txt') as f:
+        with open('emails/email_2_2.txt') as f:
             self.assertEqual("Outlook with a reply directly above line", EmailReplyParser.parse_reply(f.read()))
 
     def test_parse_out_just_top_for_outlook_with_unusual_headers_format(self):
-        with open('test/emails/email_2_3.txt') as f:
+        with open('emails/email_2_3.txt') as f:
             self.assertEqual(
                 "Outlook with a reply above headers using unusual format",
                 EmailReplyParser.parse_reply(f.read()))
 
     def test_sent_from_iphone(self):
-        with open('test/emails/email_iPhone.txt') as email:
+        with open('emails/email_iPhone.txt') as email:
             self.assertTrue("Sent from my iPhone" not in EmailReplyParser.parse_reply(email.read()))
 
     def test_email_one_is_not_on(self):
-        with open('test/emails/email_one_is_not_on.txt') as email:
+        with open('emails/email_one_is_not_on.txt') as email:
             self.assertTrue(
                 "On Oct 1, 2012, at 11:55 PM, Dave Tapley wrote:" not in EmailReplyParser.parse_reply(email.read()))
 
@@ -192,10 +190,77 @@ class EmailMessageTest(unittest.TestCase):
     def get_email(self, name):
         """ Return EmailMessage instance
         """
-        with open('test/emails/%s.txt' % name) as f:
+        with open('emails/%s.txt' % name) as f:
             text = f.read()
         return EmailReplyParser.read(text)
+
+    def test_include_signature_true(self):
+        # Test that the cut_off_at_signature function ends the email after the sign-off for include = True
+        message = self.get_email('email_signature')
+        body = EmailReplyParser.cut_off_at_signature(message.text, include=True, word_limit=100)
+        assert body.endswith('Kind regards,\n\nPerrin Aybara')
+
+    def test_include_signature_false(self):
+        # Test that the cut_off_at_signature function ends the email before the sign-off for include = False
+        message = self.get_email('email_signature')
+        body = EmailReplyParser.cut_off_at_signature(message.text, include=False, word_limit=100)
+        assert body.endswith('email cut-off point.')
+
+    def test_word_limit_default(self):
+        # Test that a long email with no word_limit provided cuts off after 100 words
+        message = self.get_email('long_passage')
+        body = EmailReplyParser.cut_off_at_signature(message.text, word_limit=100)
+        assert body.endswith('"Now HERE IS ONE HUNDRED!"')
+
+    def test_word_limit_10_words(self):
+        # Test again for a word_limit of 10
+        message = self.get_email('long_passage')
+        body = EmailReplyParser.cut_off_at_signature(message.text, word_limit=10)
+        assert body.endswith('TEN!')
+
+    def test_word_limit_500_words(self):
+        # Test again for a word_limit of 500
+        message = self.get_email('long_passage')
+        body = EmailReplyParser.cut_off_at_signature(message.text, word_limit=500)
+        assert body.endswith('FIVE HUNDRED!')
+
+    def test_include_signature_true_german(self):
+        # Similar to previous test except for German email
+        message = self.get_email('email_german')
+        body = EmailReplyParser.cut_off_at_signature(message.text, include=True, word_limit=100)
+        assert body.endswith('Mit freundlichen Grussen,\n\nLukas')
+
+    def test_include_signature_false_german(self):
+        # Similar to previous test except for German email
+        message = self.get_email('email_german')
+        body = EmailReplyParser.cut_off_at_signature(message.text, include=False, word_limit=100)
+        assert body.endswith('November vornehmen.')
+
+    def test_include_signature_true_french(self):
+        # Similar to previous test except for French email
+        message = self.get_email('email_french')
+        body = EmailReplyParser.cut_off_at_signature(message.text, include=True, word_limit=100)
+        assert body.endswith('Nicolette Baudelaire')
+
+    def test_include_signature_false_french(self):
+        # Similar to previous test except for French email
+        message = self.get_email('email_french')
+        body = EmailReplyParser.cut_off_at_signature(message.text, include=False, word_limit=100)
+        assert body.endswith("s'il vous plait?")
+
+    def test_clean_email_content_no_change(self):
+        # Ensure that a short email with no reply and no signature doesn't change
+        message = self.get_email('email_one_line')
+        clean_content = EmailReplyParser.cut_off_at_signature(body=message.text, word_limit=1000)
+        self.assertEqual(message.text, clean_content)
+
+    def test_end_of_email(self):
+        # Check that an email that continues after the sign-off (without being a header or reply) cuts off at signature
+        message = self.get_email('email_continue_after_signoff')
+        body = EmailReplyParser.cut_off_at_signature(message.text)
+        assert body.endswith('Tom Bombadil')
 
 
 if __name__ == '__main__':
     unittest.main()
+
