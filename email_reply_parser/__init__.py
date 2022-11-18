@@ -102,7 +102,8 @@ class EmailMessage(object):
 
     QUOTED_REGEX = re.compile(r"(>+)")
     HEADER_REGEX = re.compile(
-        r"^(\*+)?(From|Sent|To|Subject"  # English
+        r"(^(\*+)?.|^(\*)?)(From|Sent|To|Subject"  # English - Need ^(\*+)?. to catch any number of asterisks before
+                                                   # the matching word and ^(\*)? to catch for no asterisks 
         r"|Da|A|Data|Oggetto|Inviato"  # Italian
         r"|Från|Datum|Till|Ämne|Skickat"  # Swedish
         r"|Fran|Datum|Till|Amne|Skickat"  # Swedish
