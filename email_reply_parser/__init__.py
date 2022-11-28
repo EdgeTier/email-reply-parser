@@ -102,7 +102,8 @@ class EmailMessage(object):
 
     QUOTED_REGEX = re.compile(r"(>+)")
     HEADER_REGEX = re.compile(
-        r"^(\*+)?(From|Sent|To|Subject"  # English
+        r"(^(\*+)?.|^(\*)?)(From|Sent|To|Subject"  # English - Need ^(\*+)?. to catch any number of asterisks before
+                                                   # the matching word and ^(\*)? to catch for no asterisks 
         r"|Da|A|Data|Oggetto|Inviato"  # Italian
         r"|Från|Datum|Till|Ämne|Skickat"  # Swedish
         r"|Fran|Datum|Till|Amne|Skickat"  # Swedish
@@ -144,15 +145,15 @@ class EmailMessage(object):
     MULTI_QUOTE_HDR_REGEX_MULTILINE = re.compile(_MULTI_QUOTE_HDR_REGEX, re.DOTALL)
 
     EMAIL_SIGNOFF_REGEX = (
-        r"((regards|kind regards|warm regards|best regards|best wishes|sincerely|best|cheers|\
-        cordialement|très cordialement|bien cordialement|bien a vous|merci d'avance|d'avance merci|\
-        Vielen Dank|Vielen Dank und LG|Herzliche Grusse|grussen\s?|grusse\s?|liebe Grusse\s?|\
-        vielen dank im voraus|Mit freundlichen grussen|\
-        saluti|Cordiali saluti|Distinti saluti|buona giornata|cordialmente|\
-        o zi buna|o zi buna va urez|cu respect|cu stima|cu bine|toate cele bune|\
-        saludos cordiales|atentamente|un saludo)(.?)(,|\n))|\
-        ((thank you|thanks!?|thank you in advance|thanks in advance|merci|danke|\
-        grazie|grazie mille|multumesc\s?|multumesc anticipat|multumesc frumos|gracias|muchos gracias)(,?!?\n))"
+        r"((regards|kind regards|warm regards|best regards|best wishes|sincerely|best|cheers|"
+        r"cordialement|très cordialement|bien cordialement|bien a vous|merci d'avance|d'avance merci|"
+        r"Vielen Dank|Vielen Dank und LG|Herzliche Grusse|grussen\s?|grusse\s?|liebe Grusse\s?|"
+        r"vielen dank im voraus|Mit freundlichen grussen|"
+        r"saluti|Cordiali saluti|Distinti saluti|buona giornata|cordialmente|"
+        r"o zi buna|o zi buna va urez|cu respect|cu stima|cu bine|toate cele bune|"
+        r"saludos cordiales|atentamente|un saludo)(.?)(,|\n))|"
+        r"((thank you|thanks!?|thank you in advance|thanks in advance|merci|danke|"
+        r"grazie|grazie mille|multumesc\s?|multumesc anticipat|multumesc frumos|gracias|muchos gracias)(,?!?\n))"
     )
 
     def __init__(self, text):
