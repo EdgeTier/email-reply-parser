@@ -153,7 +153,8 @@ class EmailMessage(object):
         r"o zi buna|o zi buna va urez|cu respect|cu stima|cu bine|toate cele bune|"
         r"saludos cordiales|atentamente|un saludo)(.?)(,|\n))|"
         r"((thank you|thanks!?|thank you in advance|thanks in advance|merci|danke|"
-        r"grazie|grazie mille|multumesc\s?|multumesc anticipat|multumesc frumos|gracias|muchos gracias)(,?!?\n))"
+        r"grazie|grazie mille|multumesc\s?|multumesc anticipat|multumesc frumos|gracias|muchos gracias)(,?!?\n))|"
+        r"(Pozdrawiam.?|Z powazaniem|z pozdrowieniami)"
     )
 
     def __init__(self, text):
