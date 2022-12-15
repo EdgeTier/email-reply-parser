@@ -68,6 +68,8 @@ class EmailMessage(object):
         r"|(^Sendt fra .*(?:\r?\n(?!\r?\n).*)*)"  # Danish
         r"|(^Enviado de .*(?:\r?\n(?!\r?\n).*)*)"  # Portuguese
         r"|(^Enviado desde .*(?:\r?\n(?!\r?\n).*)*)"  # Portuguese
+        r"|(^Enviado do .*(?:\r?\n(?!\r?\n).*)*)"  # Portuguese
+        r"|(^Obter o Outlook para Android.*(?:\r?\n(?!\r?\n).*)*)" #Portuguese
         r"|(^Verstuurd vanaf .*(?:\r?\n(?!\r?\n).*)*)"  # Dutch
         r"|(^Envoye .*(?:\r?\n(?!\r?\n).*)*)"  # French
     )
@@ -112,7 +114,7 @@ class EmailMessage(object):
         r"|Lahettaja|Paivays|Vastaanottaja|Aihe|Lähetetty"  # Finnish
         r"|Fra|Sendt|Til|Emne|Dato"  # Danish
         r"|Obtenir|Telechargez|Envoye|De"  # French
-        r"|De|Enviado|Para|Assunto|Data):\*?"  # Portuguese
+        r"|Obter o Outlook para Android|De|Enviado|Para|Assunto|Data):\*?"  # Portuguese
     )
     _MULTI_QUOTE_HDR_REGEX = (
         r"(?!On.*On\s.+?wrote:)"  # English
