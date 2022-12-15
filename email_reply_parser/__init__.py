@@ -114,7 +114,7 @@ class EmailMessage(object):
         r"|Lahettaja|Paivays|Vastaanottaja|Aihe|Lähetetty"  # Finnish
         r"|Fra|Sendt|Til|Emne|Dato"  # Danish
         r"|Obtenir|Telechargez|Envoye|De"  # French
-        r"|Obter o Outlook para Android|De|Enviado|Para|Assunto|Data):\*?"  # Portuguese
+        r"|De|Enviado|Para|Assunto|Data):\*?"  # Portuguese
     )
     _MULTI_QUOTE_HDR_REGEX = (
         r"(?!On.*On\s.+?wrote:)"  # English
