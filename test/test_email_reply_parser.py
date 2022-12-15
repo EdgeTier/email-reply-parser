@@ -251,9 +251,8 @@ class EmailMessageTest(unittest.TestCase):
     def test_clean_email_portuguese(self):
         # Similar to previous test except for French email
         message = self.get_email('email_portuguese')
-        body = EmailReplyParser.cut_off_at_signature(message.text, word_limit=100)
-        print(body)
-        assert body.endswith("Cumprimentos Pedro Mota")
+        body = EmailReplyParser.cut_off_at_signature(message.text, include=False, word_limit=100)
+        assert body.endswith("Cumprimentos\nPedro Mota")
 
     def test_clean_email_content_no_change(self):
         # Ensure that a short email with no reply and no signature doesn't change
