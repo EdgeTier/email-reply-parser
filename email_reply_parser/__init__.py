@@ -352,8 +352,9 @@ class EmailMessage(object):
         """
         if word_limit is not None:
             # if we can't find the sign-off, let's just take the first 100 words
-            email_body_list = body.split()
-            body = " ".join(email_body_list[:word_limit])
+            email_body_list = body.replace("\n", " \n").split(" ")
+            newlines_offset = len([word for word in email_body_list if word == " \n"])
+            body = " ".join(email_body_list[:word_limit + newlines_offset]).replace(" \n", "\n")
 
         return body
 

@@ -210,7 +210,7 @@ class EmailMessageTest(unittest.TestCase):
         # Test that a long email with no word_limit provided cuts off after 100 words
         message = self.get_email('long_passage')
         body = EmailReplyParser.cut_off_at_signature(message.text, word_limit=100)
-        assert body.endswith('"Now HERE IS ONE HUNDRED!"')
+        assert body.endswith('"HERE IS ONE HUNDRED!"')
 
     def test_word_limit_10_words(self):
         # Test again for a word_limit of 10
@@ -222,7 +222,7 @@ class EmailMessageTest(unittest.TestCase):
         # Test again for a word_limit of 500
         message = self.get_email('long_passage')
         body = EmailReplyParser.cut_off_at_signature(message.text, word_limit=500)
-        assert body.endswith('FIVE HUNDRED!')
+        assert body.endswith('FIVE HUNDRED IS HERE!')
 
     def test_include_signature_true_german(self):
         # Similar to previous test except for German email
@@ -265,6 +265,13 @@ class EmailMessageTest(unittest.TestCase):
         message = self.get_email('email_continue_after_signoff')
         body = EmailReplyParser.cut_off_at_signature(message.text)
         assert body.endswith('Tom Bombadil')
+
+
+    def test_keep_newlines_when_no_signoff(self):
+        # Test that when there is no sign-off message detected at the end, the newlines/spacing are not changed
+        message = self.get_email('email_no_signature')
+        body = EmailReplyParser.cut_off_at_signature(message.text)
+        assert body.endswith("Let's see if it works.\n\nK")
 
 
 if __name__ == '__main__':
