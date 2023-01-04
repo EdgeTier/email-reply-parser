@@ -1,0 +1,8 @@
+Hi all,
+
+This is an email that doesn't have any sign-off at the end to test that the reply parser will not put everything
+onto one line when it doesn't detect one of our regex messages.
+
+Let's see if it works.
+
+K

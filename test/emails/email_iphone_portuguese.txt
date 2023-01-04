@@ -1,0 +1,9 @@
+Olá,
+
+Este é um exemplo simples de e-mail em português para testar sotaques. Aqui está uma frase extra para verificar se ela não divide várias frases em uma linha.
+
+Adeus,
+
+Otis
+
+Enviado do iPhone

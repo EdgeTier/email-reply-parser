@@ -74,6 +74,7 @@ class EmailMessageTest(unittest.TestCase):
 
     def test_multiline_reply_headers(self):
         message = self.get_email('email_1_6')
+        print(message)
         self.assertTrue('I get' in message.fragments[0].content)
         self.assertTrue('Sent' in message.fragments[1].content)
 
@@ -195,61 +196,46 @@ class EmailMessageTest(unittest.TestCase):
         return EmailReplyParser.read(text)
 
     def test_include_signature_true(self):
-        # Test that the cut_off_at_signature function ends the email after the sign-off for include = True
-        message = self.get_email('email_signature')
-        body = EmailReplyParser.cut_off_at_signature(message.text, include=True, word_limit=100)
-        assert body.endswith('Kind regards,\n\nPerrin Aybara')
+        # Test that the cut_off_at_signature function ends an email after the sign-off when include = True
+        message_english = self.get_email('email_signature')
+        message_german = self.get_email('email_german')
+        message_french = self.get_email('email_french')
+
+        body_english = EmailReplyParser.cut_off_at_signature(message_english.text, include=True, word_limit=100)
+        body_german = EmailReplyParser.cut_off_at_signature(message_german.text, include=True, word_limit=100)
+        body_french = EmailReplyParser.cut_off_at_signature(message_french.text, include=True, word_limit=100)
+
+        assert body_english.endswith('Kind regards,\n\nPerrin Aybara')
+        assert body_german.endswith('Mit freundlichen Grüßen,\n\nLukas')
+        assert body_french.endswith('Bien à vous,\n\nNicolette Baudelaire')
 
     def test_include_signature_false(self):
-        # Test that the cut_off_at_signature function ends the email before the sign-off for include = False
-        message = self.get_email('email_signature')
-        body = EmailReplyParser.cut_off_at_signature(message.text, include=False, word_limit=100)
-        assert body.endswith('email cut-off point.')
+        # Test that the cut_off_at_signature function ends an email before the sign-off when include = False
+        message_english = self.get_email('email_signature')
+        message_german = self.get_email('email_german')
+        message_french = self.get_email('email_french')
 
-    def test_word_limit_default(self):
-        # Test that a long email with no word_limit provided cuts off after 100 words
+        body_english = EmailReplyParser.cut_off_at_signature(message_english.text, include=False, word_limit=100)
+        body_german = EmailReplyParser.cut_off_at_signature(message_german.text, include=False, word_limit=100)
+        body_french = EmailReplyParser.cut_off_at_signature(message_french.text, include=False, word_limit=100)
+
+        assert body_english.endswith('email cut-off point.')
+        assert body_german.endswith('November vornehmen.')
+        assert body_french.endswith("s'il vous plaît?")
+
+    def test_word_limit(self):
+        # Test that a long email cuts off after the default or given word limit
         message = self.get_email('long_passage')
-        body = EmailReplyParser.cut_off_at_signature(message.text, word_limit=100)
-        assert body.endswith('"HERE IS ONE HUNDRED!"')
+        body_default_limit = EmailReplyParser.cut_off_at_signature(message.text, word_limit=100)  # Default value
+        body_short = EmailReplyParser.cut_off_at_signature(message.text, word_limit=10)  # Less than default
+        body_long = EmailReplyParser.cut_off_at_signature(message.text, word_limit=500)  # More than default
 
-    def test_word_limit_10_words(self):
-        # Test again for a word_limit of 10
-        message = self.get_email('long_passage')
-        body = EmailReplyParser.cut_off_at_signature(message.text, word_limit=10)
-        assert body.endswith('TEN!')
-
-    def test_word_limit_500_words(self):
-        # Test again for a word_limit of 500
-        message = self.get_email('long_passage')
-        body = EmailReplyParser.cut_off_at_signature(message.text, word_limit=500)
-        assert body.endswith('FIVE HUNDRED IS HERE!')
-
-    def test_include_signature_true_german(self):
-        # Similar to previous test except for German email
-        message = self.get_email('email_german')
-        body = EmailReplyParser.cut_off_at_signature(message.text, include=True, word_limit=100)
-        assert body.endswith('Mit freundlichen Grussen,\n\nLukas')
-
-    def test_include_signature_false_german(self):
-        # Similar to previous test except for German email
-        message = self.get_email('email_german')
-        body = EmailReplyParser.cut_off_at_signature(message.text, include=False, word_limit=100)
-        assert body.endswith('November vornehmen.')
-
-    def test_include_signature_true_french(self):
-        # Similar to previous test except for French email
-        message = self.get_email('email_french')
-        body = EmailReplyParser.cut_off_at_signature(message.text, include=True, word_limit=100)
-        assert body.endswith('Nicolette Baudelaire')
-
-    def test_include_signature_false_french(self):
-        # Similar to previous test except for French email
-        message = self.get_email('email_french')
-        body = EmailReplyParser.cut_off_at_signature(message.text, include=False, word_limit=100)
-        assert body.endswith("s'il vous plait?")
+        assert body_default_limit.endswith('"HERE IS ONE HUNDRED!"')
+        assert body_short.endswith('TEN!')
+        assert body_long.endswith('FIVE HUNDRED IS HERE!')
 
     def test_clean_email_portuguese(self):
-        # Similar to previous test except for French email
+        # Test Portuguese regex
         message = self.get_email('email_portuguese')
         body = EmailReplyParser.cut_off_at_signature(message.text, include=False, word_limit=100)
         assert body.endswith("Cumprimentos\nPedro Mota")
@@ -266,14 +252,30 @@ class EmailMessageTest(unittest.TestCase):
         body = EmailReplyParser.cut_off_at_signature(message.text)
         assert body.endswith('Tom Bombadil')
 
-
     def test_keep_newlines_when_no_signoff(self):
         # Test that when there is no sign-off message detected at the end, the newlines/spacing are not changed
         message = self.get_email('email_no_signature')
         body = EmailReplyParser.cut_off_at_signature(message.text)
         assert body.endswith("Let's see if it works.\n\nK")
 
+    def test_remove_SIG_REGEX(self):
+        # Test that any "Sent from iPhone" messages are removed at the end of an email
+        message_french = self.get_email('email_iphone_french')
+        message_portuguese = self.get_email('email_iphone_portuguese')
+        message_polish = self.get_email('email_iphone_polish')
+        message_finnish = self.get_email('email_iphone_finnish')
+
+
+        body_french = EmailReplyParser.cut_off_at_signature(message_french.text)
+        body_portuguese = EmailReplyParser.cut_off_at_signature(message_portuguese.text)
+        body_polish = EmailReplyParser.cut_off_at_signature(message_polish.text)
+        body_finnish = EmailReplyParser.cut_off_at_signature(message_finnish.text)
+
+        assert body_french.endswith("Au revoir,\n\nKelsier")
+        assert body_portuguese.endswith("Adeus,\n\nOtis")
+        assert body_polish.endswith("Do widzenia,\n\nTriss")
+        assert body_finnish.endswith("Hyvästi,\n\nTorin")
+
 
 if __name__ == '__main__':
     unittest.main()
-
