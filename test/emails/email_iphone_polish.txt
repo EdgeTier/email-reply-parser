@@ -1,0 +1,9 @@
+Witaj,
+
+To jest prosty przykładowy e-mail w języku polskim do testowania akcentów. Oto dodatkowe zdanie, aby sprawdzić, czy nie dzieli wielu zdań w jednym wierszu.
+
+Do widzenia,
+
+Triss
+
+Wysłane z iPhone'a

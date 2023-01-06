@@ -1,0 +1,9 @@
+Bonjour,
+
+Ceci est un simple exemple d'email en français pour tester les accents. Voici une phrase supplémentaire pour vérifier qu'elle ne divise pas plusieurs phrases sur une seule ligne.
+
+Au revoir,
+
+Kelsier
+
+Envoyé à partir de mon iPhone

@@ -47,7 +47,7 @@ class EmailReplyParser(object):
         found before that point. Default = 100.
         """
         parsed_email = EmailReplyParser.parse_reply(body)
-        cleaned_email = EmailMessage.clean_email_content(parsed_email, include, word_limit)
+        cleaned_email = EmailMessage.clean_email_content(parsed_email, include, word_limit, EmailMessage.SIG_REGEX)
         return cleaned_email.strip()
 
 
@@ -63,15 +63,17 @@ class EmailMessage(object):
         r"|(^Skickat fran .*(?:\r?\n(?!\r?\n).*)*)"  # Swedish
         r"|(^Gesendet mit.*(?:\r?\n(?!\r?\n).*)*)"  # German
         r"|(^Hanki .*(?:\r?\n(?!\r?\n).*)*)"  # Finnish
-        r"|(^Lähetetty .*(?:\r?\n(?!\r?\n).*)*)"  # Finnish
         r"|(^Lahetetty .*(?:\r?\n(?!\r?\n).*)*)"  # Finnish
         r"|(^Sendt fra .*(?:\r?\n(?!\r?\n).*)*)"  # Danish
         r"|(^Enviado de .*(?:\r?\n(?!\r?\n).*)*)"  # Portuguese
         r"|(^Enviado desde .*(?:\r?\n(?!\r?\n).*)*)"  # Portuguese
         r"|(^Enviado do .*(?:\r?\n(?!\r?\n).*)*)"  # Portuguese
-        r"|(^Obter o Outlook para Android.*(?:\r?\n(?!\r?\n).*)*)" #Portuguese
+        r"|(^Obter o Outlook para Android.*(?:\r?\n(?!\r?\n).*)*)"  # Portuguese
         r"|(^Verstuurd vanaf .*(?:\r?\n(?!\r?\n).*)*)"  # Dutch
-        r"|(^Envoye .*(?:\r?\n(?!\r?\n).*)*)"  # French
+        r"|(^Envoye de .*(?:\r?\n(?!\r?\n).*)*)"  # French
+        r"|(^Envoye depuis .*(?:\r?\n(?!\r?\n).*)*)"  # French
+        r"|(^Envoye a partir .*(?:\r?\n(?!\r?\n).*)*)"  # French
+        r"|(^Wyslane z .*(?:\r?\n(?!\r?\n).*)*)"  # Polish
     )
 
     QUOTE_HDR_REGEX = re.compile(
@@ -206,7 +208,6 @@ class EmailMessage(object):
 
     def _scan_line(self, line):
         """ Reviews each line in email message and determines fragment type
-
             line - a row of text from an email message
         """
         is_quote_header = self.QUOTE_HDR_REGEX.match(line) is not None
@@ -261,17 +262,18 @@ class EmailMessage(object):
         self.fragment = None
 
     @staticmethod
-    def clean_email_content(body, include: Optional[bool], word_limit):
+    def clean_email_content(body, include: Optional[bool], word_limit, SIG_REGEX):
         """
         Determines if a signature can be found and if so, whether to end the email before or after the signature.
         """
-        body = unidecode.unidecode(body)
+        # Make unidecode copy of body to check against SIG_REGEX and EMAIL_SIGNOFF_REGEX
+        body_clean = unidecode.unidecode(body)
         email_signoff_regex = EmailMessage.EMAIL_SIGNOFF_REGEX
 
-        # Find sign-off
+        # Find sign-off match for unidecode copy
         signoff_matches = re.finditer(
             email_signoff_regex,
-            body,
+            body_clean,
             flags=re.IGNORECASE,
         )
 
@@ -282,6 +284,22 @@ class EmailMessage(object):
         else:
             # Remove the sign-off
             body = EmailMessage.remove_signoff(body, signoff_matches, word_limit)
+
+        # Split the body into lines and remove any "Sent from iPhone" lines
+        # Use the unidecode copy to check for matches but remove lines from original body
+        body = body.strip()
+        body_lines = body.split('\n')
+        body_lines_unidecode = unidecode.unidecode(body).split('\n')
+
+        # Check if the first line matches and remove
+        if SIG_REGEX.match(body_lines_unidecode[0]):
+            body_lines = body_lines[1:]
+
+        # Check if the final line matches, remove, and re-join lines
+        if SIG_REGEX.match(body_lines_unidecode[-1]):
+            body = '\n'.join(body_lines[:-1])
+        else:
+            body = '\n'.join(body_lines)
 
         return body
 
@@ -300,9 +318,7 @@ class EmailMessage(object):
             end_of_email = body[signoff_matches_end_positions[0]:]
 
             signature_matches = re.finditer(
-                # TODO: Check if ((\w+)[\n.])+|\Z works instead (\Z to get the absolute end of a string)
                 r"((\w+)[\n.])+|\Z",
-                # r"((\w+)[\n.])+",  # returns the first line after the sign-off
                 end_of_email,
                 flags=re.IGNORECASE
             )

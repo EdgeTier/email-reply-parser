@@ -1,0 +1,9 @@
+Hei,
+
+Tämä on yksinkertainen portugalilainen sähköpostiesimerkki aksenttien testaamiseen. Tässä on ylimääräinen lause varmistaaksesi, että se ei katkaise useita lauseita yhdellä rivillä.
+
+Hyvästi,
+
+Torin
+
+Lähetetty iPhonesta
