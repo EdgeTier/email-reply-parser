@@ -258,13 +258,12 @@ class EmailMessageTest(unittest.TestCase):
         body = EmailReplyParser.cut_off_at_signature(message.text)
         assert body.endswith("Let's see if it works.\n\nK")
 
-    def test_remove_SIG_REGEX(self):
+    def test_remove_SIG_REGEX_end(self):
         # Test that any "Sent from iPhone" messages are removed at the end of an email
         message_french = self.get_email('email_iphone_french')
         message_portuguese = self.get_email('email_iphone_portuguese')
         message_polish = self.get_email('email_iphone_polish')
         message_finnish = self.get_email('email_iphone_finnish')
-
 
         body_french = EmailReplyParser.cut_off_at_signature(message_french.text)
         body_portuguese = EmailReplyParser.cut_off_at_signature(message_portuguese.text)
@@ -275,6 +274,16 @@ class EmailMessageTest(unittest.TestCase):
         assert body_portuguese.endswith("Adeus,\n\nOtis")
         assert body_polish.endswith("Do widzenia,\n\nTriss")
         assert body_finnish.endswith("Hyvästi,\n\nTorin")
+
+    # TODO: Write test for "Sent from iPhone" at the beginning of a message
+    def test_remove_SIG_REGEX_start(self):
+        # Test that any "Sent from iPhone" messages are removed at the beginning of an email
+        message_english = self.get_email('email_iphone_start')
+        message_german = self.get_email('email_iphone_start_german')
+        body_english = EmailReplyParser.cut_off_at_signature(message_english.text)
+        body_german = EmailReplyParser.cut_off_at_signature(message_german.text)
+        assert body_english.startswith('Hi,\n\nCase where the')
+        assert body_german.startswith('Hallo,\n\nFall, in dem das')
 
 
 if __name__ == '__main__':

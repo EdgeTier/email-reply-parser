@@ -71,6 +71,8 @@ class EmailMessage(object):
         r"|(^Obter o Outlook para Android.*(?:\r?\n(?!\r?\n).*)*)"  # Portuguese
         r"|(^Verstuurd vanaf .*(?:\r?\n(?!\r?\n).*)*)"  # Dutch
         r"|(^Envoye de .*(?:\r?\n(?!\r?\n).*)*)"  # French
+        r"|(^Envoye depuis .*(?:\r?\n(?!\r?\n).*)*)"  # French
+        r"|(^Envoye a partir .*(?:\r?\n(?!\r?\n).*)*)"  # French
         r"|(^Wyslane z .*(?:\r?\n(?!\r?\n).*)*)"  # Polish
     )
 
@@ -282,13 +284,21 @@ class EmailMessage(object):
             # Remove the sign-off
             body = EmailMessage.remove_signoff(body, signoff_matches, word_limit)
 
-        # Split the body into lines and remove the last line if it matches any of the SIG_REGEX
+        # Split the body into lines and remove any "Sent from iPhone" lines
         # Use the unidecode copy to check for matches but remove lines from original body
-        body_lines_unidecode = body_clean.split('\n')
+        body = body.strip()
         body_lines = body.split('\n')
+        body_lines_unidecode = unidecode.unidecode(body).split('\n')
 
+        # Check if the first line matches and remove
+        if SIG_REGEX.match(body_lines_unidecode[0]):
+            body_lines = body_lines[1:]
+
+        # Check if the final line matches, remove, and re-join lines
         if SIG_REGEX.match(body_lines_unidecode[-1]):
             body = '\n'.join(body_lines[:-1])
+        else:
+            body = '\n'.join(body_lines)
 
         return body
 
