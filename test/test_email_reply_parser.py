@@ -275,7 +275,6 @@ class EmailMessageTest(unittest.TestCase):
         assert body_polish.endswith("Do widzenia,\n\nTriss")
         assert body_finnish.endswith("Hyvästi,\n\nTorin")
 
-    # TODO: Write test for "Sent from iPhone" at the beginning of a message
     def test_remove_SIG_REGEX_start(self):
         # Test that any "Sent from iPhone" messages are removed at the beginning of an email
         message_english = self.get_email('email_iphone_start')
