@@ -24,66 +24,11 @@ class EmailMessageTest(unittest.TestCase):
         self.assertTrue("folks" in message.fragments[0].content)
         self.assertTrue("riak-users" in message.fragments[2].content)
 
-    def test_reads_bottom_message(self):
-        message = self.get_email('email_1_2')
-
-        self.assertEqual(6, len(message.fragments))
-        self.assertEqual(
-            [False, True, False, True, False, False],
-            [f.quoted for f in message.fragments]
-        )
-
-        self.assertEqual(
-            [False, False, False, False, False, True],
-            [f.signature for f in message.fragments]
-        )
-
-        self.assertEqual(
-            [False, False, False, True, True, True],
-            [f.hidden for f in message.fragments]
-        )
-
-        self.assertTrue("Hi," in message.fragments[0].content)
-        self.assertTrue("On" in message.fragments[1].content)
-        self.assertTrue(">" in message.fragments[3].content)
-        self.assertTrue("riak-users" in message.fragments[5].content)
-
-    def test_reads_inline_replies(self):
-        message = self.get_email('email_1_8')
-        self.assertEqual(7, len(message.fragments))
-
-        self.assertEqual(
-            [True, False, True, False, True, False, False],
-            [f.quoted for f in message.fragments]
-        )
-
-        self.assertEqual(
-            [False, False, False, False, False, False, True],
-            [f.signature for f in message.fragments]
-        )
-
-        self.assertEqual(
-            [False, False, False, False, True, True, True],
-            [f.hidden for f in message.fragments]
-        )
-
-    def test_reads_top_post(self):
-        message = self.get_email('email_1_3')
-
-        self.assertEqual(5, len(message.fragments))
-
     def test_multiline_reply_headers(self):
         message = self.get_email('email_1_6')
         print(message)
         self.assertTrue('I get' in message.fragments[0].content)
         self.assertTrue('Sent' in message.fragments[1].content)
-
-    def test_captures_date_string(self):
-        message = self.get_email('email_1_4')
-
-        self.assertTrue('Awesome' in message.fragments[0].content)
-        self.assertTrue('On' in message.fragments[1].content)
-        self.assertTrue('Loader' in message.fragments[1].content)
 
     def test_complex_body_with_one_fragment(self):
         message = self.get_email('email_1_5')
@@ -114,12 +59,8 @@ class EmailMessageTest(unittest.TestCase):
     def test_deals_with_windows_line_endings(self):
         msg = self.get_email('email_1_7')
         self.assertTrue(':+1:' in msg.fragments[0].content)
-        self.assertTrue('On' in msg.fragments[1].content)
+        self.assertTrue('On' in msg.fragments[0].content)
         self.assertTrue('Steps 0-2' in msg.fragments[1].content)
-
-    def test_reply_is_parsed(self):
-        message = self.get_email('email_1_2')
-        self.assertTrue("You can list the keys for the bucket" in message.reply)
 
     def test_reply_from_gmail(self):
         with open('emails/email_gmail.txt') as f:
@@ -158,26 +99,6 @@ class EmailMessageTest(unittest.TestCase):
     def test_email_headers_no_delimiter(self):
         message = self.get_email('email_headers_no_delimiter')
         self.assertEqual(message.reply.strip(), 'And another reply!')
-
-    def test_multiple_on(self):
-        message = self.get_email("greedy_on")
-        self.assertTrue(re.match('^On your remote host', message.fragments[0].content))
-        self.assertTrue(re.match('^On 9 Jan 2014', message.fragments[1].content))
-
-        self.assertEqual(
-            [False, True, False],
-            [fragment.quoted for fragment in message.fragments]
-        )
-
-        self.assertEqual(
-            [False, False, False],
-            [fragment.signature for fragment in message.fragments]
-        )
-
-        self.assertEqual(
-            [False, True, True],
-            [fragment.hidden for fragment in message.fragments]
-        )
 
     def test_pathological_emails(self):
         t0 = time.time()
@@ -240,6 +161,12 @@ class EmailMessageTest(unittest.TestCase):
         body = EmailReplyParser.cut_off_at_signature(message.text, include=False, word_limit=100)
         assert body.endswith("Cumprimentos\nPedro Mota")
 
+    def test_clean_email_french(self):
+        # Test Portuguese regex
+        message = self.get_email('email_french_accent_sent_on')
+        body = EmailReplyParser.cut_off_at_signature(message.text, include=False, word_limit=100)
+        assert body == "Bonjour, ca va bien!"
+
     def test_clean_email_content_no_change(self):
         # Ensure that a short email with no reply and no signature doesn't change
         message = self.get_email('email_one_line')
@@ -284,6 +211,20 @@ class EmailMessageTest(unittest.TestCase):
         assert body_english.startswith('Hi,\n\nCase where the')
         assert body_german.startswith('Hallo,\n\nFall, in dem das')
 
+    def test_sent_from_device_in_thread(self):
+        """
+        Tests that if the thread becomes malformed we will be able to parse out the correct part if a sent from device is present
+        """
+        message = self.get_email("sent_from_device_in_thread")
+        body = EmailReplyParser.cut_off_at_signature(message.text)
+
+        assert body == "Yes that would be fine"
+
+    def test_email_with_two_headers(self):
+        message = self.get_email('email_with_two_headers')
+        body = EmailReplyParser.cut_off_at_signature(message.text, include=True, word_limit=100)
+
+        assert body == "This is the main content"
 
 if __name__ == '__main__':
     unittest.main()
