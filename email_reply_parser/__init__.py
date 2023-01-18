@@ -303,7 +303,7 @@ class EmailMessage(object):
 
         # Check if the final line matches, remove, and re-join lines
         #if SIG_REGEX.match(body_lines_unidecode[-1]):
-        if EmailMessage.SENT_FROM_DEVICE_REGEX.match(body_lines_unidecode[0]):
+        if EmailMessage.SENT_FROM_DEVICE_REGEX.match(body_lines_unidecode[-1]):
             body = '\n'.join(body_lines[:-1])
         else:
             body = '\n'.join(body_lines)
