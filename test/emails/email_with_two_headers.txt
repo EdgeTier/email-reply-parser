@@ -1,0 +1,15 @@
+This is the main content
+
+
+
+On Wed, May 18, 2016 at 11:10 PM John Doe <john@test.com>
+wrote:
+
+
+This is the first bit of a chain
+
+On Wed, May 18, 2016 at 11:10 PM Jane Doe <jane@test.com>
+wrote:
+
+
+This is the second bit of the chain!

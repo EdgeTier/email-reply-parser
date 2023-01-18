@@ -5,7 +5,7 @@
 """
 
 import re
-from typing import Optional
+from typing import Optional, List
 import unidecode
 
 
@@ -47,7 +47,7 @@ class EmailReplyParser(object):
         found before that point. Default = 100.
         """
         parsed_email = EmailReplyParser.parse_reply(body)
-        cleaned_email = EmailMessage.clean_email_content(parsed_email, include, word_limit, EmailMessage.SIG_REGEX)
+        cleaned_email = EmailMessage.clean_email_content(parsed_email, include, word_limit)
         return cleaned_email.strip()
 
 
@@ -55,25 +55,27 @@ class EmailMessage(object):
     """ An email message represents a parsed email body.
         The regexes cover English, Italian, Swedish, Finnish, Danish, German, Portuguese, Polish, French to date.
     """
-    SIG_REGEX = re.compile(
-        r"(--|__|-\w)|(^Sent from .*(?:\r?\n(?!\r?\n).*)*)"  # English
-        r"|(^Inviato da .*(?:\r?\n(?!\r?\n).*)*)"  # Italian
-        r"|(^Inviato dal .*(?:\r?\n(?!\r?\n).*)*)"  # Italian
-        r"|(^Skickat från .*(?:\r?\n(?!\r?\n).*)*)"  # Swedish
-        r"|(^Skickat fran .*(?:\r?\n(?!\r?\n).*)*)"  # Swedish
-        r"|(^Gesendet mit.*(?:\r?\n(?!\r?\n).*)*)"  # German
-        r"|(^Hanki .*(?:\r?\n(?!\r?\n).*)*)"  # Finnish
-        r"|(^Lahetetty .*(?:\r?\n(?!\r?\n).*)*)"  # Finnish
-        r"|(^Sendt fra .*(?:\r?\n(?!\r?\n).*)*)"  # Danish
-        r"|(^Enviado de .*(?:\r?\n(?!\r?\n).*)*)"  # Portuguese
-        r"|(^Enviado desde .*(?:\r?\n(?!\r?\n).*)*)"  # Portuguese
-        r"|(^Enviado do .*(?:\r?\n(?!\r?\n).*)*)"  # Portuguese
-        r"|(^Obter o Outlook para Android.*(?:\r?\n(?!\r?\n).*)*)"  # Portuguese
-        r"|(^Verstuurd vanaf .*(?:\r?\n(?!\r?\n).*)*)"  # Dutch
-        r"|(^Envoye de .*(?:\r?\n(?!\r?\n).*)*)"  # French
-        r"|(^Envoye depuis .*(?:\r?\n(?!\r?\n).*)*)"  # French
-        r"|(^Envoye a partir .*(?:\r?\n(?!\r?\n).*)*)"  # French
-        r"|(^Wyslane z .*(?:\r?\n(?!\r?\n).*)*)"  # Polish
+    SENT_FROM_DEVICE_REGEX = re.compile(
+        r"(^--|^__|^-\w)"
+        r"|(^Sent from .{,50}$)"  # English
+        r"|(^Inviato da .{,50}$)"  # Italian
+        r"|(^Inviato dal .{,50}$)"  # Italian
+        r"|(^Skickat från .{,50}$)"  # Swedish
+        r"|(^Skickat fran .{,50}$)"  # Swedish
+        r"|(^Gesendet mit.{,50}$)"  # German
+        r"|(^Hanki .{,50}$)"  # Finnish
+        r"|(^Lahetetty .{,50}$)"  # Finnish
+        r"|(^Sendt fra .{,50}$)"  # Danish
+        r"|(^Enviado de .{,50}$)"  # Portuguese
+        r"|(^Enviado desde .{,50}$)"  # Portuguese
+        r"|(^Enviado do .{,50}$)"  # Portuguese
+        r"|(^Obter o Outlook para Android)"  # Portuguese
+        r"|(^Verstuurd vanaf .{,50}$)"  # Dutch
+        r"|(^Envoye de .{,50}$)"  # French
+        r"|(^Envoye depuis .{,50}$)"  # French
+        r"|(^Envoye a partir .{,50}$)"  # French
+        r"|(^Wyslane z .{,50}$)",  # Polish,
+        flags=re.MULTILINE
     )
 
     QUOTE_HDR_REGEX = re.compile(
@@ -119,36 +121,35 @@ class EmailMessage(object):
         r"|De|Enviado|Para|Assunto|Data):\*?"  # Portuguese
     )
     _MULTI_QUOTE_HDR_REGEX = (
-        r"(?!On.*On\s.+?wrote:)"  # English
-        r"(On\s(.+?)wrote:"  # English
-        r"|Il\s(.+?)ha(.*?)"  # Italian
-        r"|mån\s(.+?)skrev(.*?):"  # Swedish
-        r"|man\s(.+?)skrev(.*?):"  # Swedish
-        r"|tis\s(.+?)skrev(.*?):"  # Norwegian
-        r"|tors\s(.+?)skrev(.*?):"  # Norwegian
-        r"|ons\s(.+?)skrev(.*?):"  # Norwegian
-        r"|Am\s(.+?)schrieb(.*?):"  # German
-        r"|ma\s(.+?)kirjoitti(.*?):"  # Finnish
-        r"|ti\s(.+?)kirjoitti(.*?):"  # Finnish
-        r"|pe\s(.+?)kirjoitti(.*?):"  # Finnish
-        r"|ke\s(.+?)kirjoitti(.*?):"  # Finnish
-        r"|fre\s(.+?)skrev(.*?):"  # Danish
-        r"|Den\s(.+?)skrev(.*?):"  # Danish
-        r"|tir\s(.+?)skrev(.*?):"  # Danish
-        r"|Op\s(.+?)schreef(.*?):"  # Dutch
-        r"|Op\s(.+?)geschreven(.*?):"  # Dutch
-        r"|A\s(.+?)escreveu(.*?):"  # Portuguese
-        r"|No dia\s(.+?)escreveu(.*?):"  # Portuguese
-        r"|El\s(.+?)escribio(.*?):"  # Spanish
-        r"|Le\s(.+?)ecrit(.*?):"  # French
-        r"|Dna\s(.+?)napisala\(a\)(.*?):"  # Slovak
-        r"|po\s(.+?)napisal\(a\)(.*?):"  # Slovak
-        r"|Dnia\s(.+?)napisal\(a\)(.*?):)"  # Polish
+        r"(On (.{,120})\n?wrote(\s+)?:"  # English
+        r"|Il (.{,120})\n?ha(\s+)?:"  # Italian
+        r"|mån (.{,120})\n?skrev(\s+)?:"  # Swedish
+        r"|man (.{,120})\n?skrev(\s+):"  # Swedish
+        r"|tis (.{,120})\n?skrev(\s+):"  # Norwegian
+        r"|tors (.{,120})\n?skrev(\s+):"  # Norwegian
+        r"|ons (.{,120})\n?skrev(\s+):"  # Norwegian
+        r"|Am (.{,120})\n?schrieb(\s+)?::"  # German
+        r"|ma (.{,120})\n?kirjoitti(\s+)?:"  # Finnish
+        r"|ti (.{,120})\n?kirjoitti(\s+)?:"  # Finnish
+        r"|pe (.{,120})\n?kirjoitti(\s+)?:"  # Finnish
+        r"|ke (.{,120})\n?kirjoitti(\s+)?:"  # Finnish
+        r"|fre (.{,120})\n?skrev(\s+)?:"  # Danish
+        r"|Den (.{,120})\n?skrev(\s+)?:"  # Danish
+        r"|tir (.{,120})\n?skrev(\s+)?:"  # Danish
+        r"|Op (.{,120})\n?schreef(\s+)?:"  # Dutch
+        r"|Op (.{,120})\n?geschreven(\s+)?:"  # Dutch
+        r"|A (.{,120})\n?escreveu(\s+)?:"  # Portuguese
+        r"|No dia (.{,120})\n?escreveu(\s+)?:"  # Portuguese
+        r"|El (.{,120})\n?escribio(\s+)?:"  # Spanish
+        r"|Le (.{,120})\n?ecrit(\s+)?:"  # French
+        r"|Le (.{,120})\n?écrit(\s+)?:"  # French
+        r"|Dna (.{,120})\n?napisala\(a\)(\s+)?:"  # Slovak
+        r"|po (.{,120})\n?napisal\(a\)(\s+)?:"  # Slovak
+        r"|Dnia (.{,120})\n?napisal\(a\)(\s+)?:)"  # Polish
     )
-    MULTI_QUOTE_HDR_REGEX = re.compile(_MULTI_QUOTE_HDR_REGEX, re.DOTALL | re.MULTILINE)
-    MULTI_QUOTE_HDR_REGEX_MULTILINE = re.compile(_MULTI_QUOTE_HDR_REGEX, re.DOTALL)
+    MULTI_QUOTE_HDR_REGEX = re.compile(_MULTI_QUOTE_HDR_REGEX)
 
-    EMAIL_SIGNOFF_REGEX = (
+    EMAIL_SIGNOFF_REGEX = re.compile(
         r"((regards|kind regards|warm regards|best regards|best wishes|sincerely|best|cheers|"
         r"cordialement|très cordialement|bien cordialement|bien a vous|merci d'avance|d'avance merci|"
         r"Vielen Dank|Vielen Dank und LG|Herzliche Grusse|grussen\s?|grusse\s?|liebe Grusse\s?|"
@@ -158,7 +159,8 @@ class EmailMessage(object):
         r"saludos cordiales|atentamente|un saludo)(.?)(,|\n))|"
         r"((thank you|thanks!?|thank you in advance|thanks in advance|merci|danke|"
         r"grazie|grazie mille|multumesc\s?|multumesc anticipat|multumesc frumos|gracias|muchos gracias)(,?!?\n))|"
-        r"(Pozdrawiam.?|Z powazaniem|z pozdrowieniami)"
+        r"(Pozdrawiam.?|Z powazaniem|z pozdrowieniami)",
+        flags=re.IGNORECASE
     )
 
     def __init__(self, text):
@@ -176,9 +178,9 @@ class EmailMessage(object):
 
         self.found_visible = False
 
-        is_multi_quote_header = self.MULTI_QUOTE_HDR_REGEX_MULTILINE.search(self.text)
+        is_multi_quote_header = self.MULTI_QUOTE_HDR_REGEX.search(self.text)
         if is_multi_quote_header:
-            self.text = self.MULTI_QUOTE_HDR_REGEX.sub(is_multi_quote_header.groups()[0].replace('\n', ''), self.text)
+            self.text = self.text[:is_multi_quote_header.start()]
 
         # Fix any outlook style replies, with the reply immediately above the signature boundary line
         #   See email_2_2.txt for an example
@@ -215,7 +217,7 @@ class EmailMessage(object):
         is_header = is_quote_header or self.HEADER_REGEX.match(line) is not None
 
         if self.fragment and len(line.strip()) == 0:
-            if self.SIG_REGEX.match(self.fragment.lines[-1].strip()):
+            if self.SENT_FROM_DEVICE_REGEX.match(self.fragment.lines[-1].strip()):
                 self.fragment.signature = True
                 self._finish_fragment()
 
@@ -262,28 +264,32 @@ class EmailMessage(object):
         self.fragment = None
 
     @staticmethod
-    def clean_email_content(body, include: Optional[bool], word_limit, SIG_REGEX):
+    def clean_email_content(body, include: Optional[bool], word_limit: Optional[int]):
         """
         Determines if a signature can be found and if so, whether to end the email before or after the signature.
         """
-        # Make unidecode copy of body to check against SIG_REGEX and EMAIL_SIGNOFF_REGEX
+        # Make unidecode copy of body to check against SENT_FROM_DEVICE_REGEX and EMAIL_SIGNOFF_REGEX
         body_clean = unidecode.unidecode(body)
-        email_signoff_regex = EmailMessage.EMAIL_SIGNOFF_REGEX
 
-        # Find sign-off match for unidecode copy
-        signoff_matches = re.finditer(
-            email_signoff_regex,
-            body_clean,
-            flags=re.IGNORECASE,
-        )
+        # Find sign-off or sent from device match for unidecode copy
+        signoff_matches = list(EmailMessage.EMAIL_SIGNOFF_REGEX.finditer(body_clean))
+
+        # Note we need to ignore the sent from if it is on the first line of the message
+        end_of_first_line_index = body_clean.find("\n")
+        sent_from_device_matches = []
+        if end_of_first_line_index != -1:
+            sent_from_device_matches = EmailMessage.SENT_FROM_DEVICE_REGEX.finditer(body_clean)
+            sent_from_device_matches = [
+                match for match in sent_from_device_matches if match.start() > end_of_first_line_index
+            ]
 
         if include is True:
             # Keep the sign-off
-            body = EmailMessage.keep_signoff(body, signoff_matches, word_limit)
+            body = EmailMessage.keep_signoff(body, signoff_matches, sent_from_device_matches, word_limit)
 
         else:
             # Remove the sign-off
-            body = EmailMessage.remove_signoff(body, signoff_matches, word_limit)
+            body = EmailMessage.remove_signoff(body, signoff_matches, sent_from_device_matches, word_limit)
 
         # Split the body into lines and remove any "Sent from iPhone" lines
         # Use the unidecode copy to check for matches but remove lines from original body
@@ -292,11 +298,12 @@ class EmailMessage(object):
         body_lines_unidecode = unidecode.unidecode(body).split('\n')
 
         # Check if the first line matches and remove
-        if SIG_REGEX.match(body_lines_unidecode[0]):
+        if EmailMessage.SENT_FROM_DEVICE_REGEX.match(body_lines_unidecode[0]):
             body_lines = body_lines[1:]
 
         # Check if the final line matches, remove, and re-join lines
-        if SIG_REGEX.match(body_lines_unidecode[-1]):
+        #if SIG_REGEX.match(body_lines_unidecode[-1]):
+        if EmailMessage.SENT_FROM_DEVICE_REGEX.match(body_lines_unidecode[0]):
             body = '\n'.join(body_lines[:-1])
         else:
             body = '\n'.join(body_lines)
@@ -304,16 +311,29 @@ class EmailMessage(object):
         return body
 
     @staticmethod
-    def keep_signoff(body, signoff_matches, word_limit: Optional[int] = 100):
+    def keep_signoff(
+            body: str,
+            signoff_matches: List[re.Match],
+            sent_from_device_matches: List[re.Match],
+            word_limit: Optional[int] = None
+    ):
         """
         Find where the signature ends and cut-off the email at that point.
         """
+
+        # first handle any sent from iphone stuff
+        if len(sent_from_device_matches) > 0:
+            sent_from_device_matches_start = [
+                match.start() for match in sent_from_device_matches
+            ]
+            body = body[:sent_from_device_matches_start[0]]
+
         # Find where sign-off ends
         signoff_matches_end_positions = [
             signoff_match.end() for signoff_match in signoff_matches
         ]
 
-        if len(signoff_matches_end_positions) > 0:
+        if len(signoff_matches_end_positions) > 0 and signoff_matches_end_positions[0] < len(body):
             # If a sign-off was found, check for a signature
             end_of_email = body[signoff_matches_end_positions[0]:]
 
@@ -343,16 +363,28 @@ class EmailMessage(object):
         return body
 
     @staticmethod
-    def remove_signoff(body, signoff_matches, word_limit: Optional[int] = 100):
+    def remove_signoff(
+            body: str,
+            signoff_matches: List[re.Match],
+            sent_from_device_matches: List[re.Match],
+            word_limit: Optional[int] = None
+    ):
         """
         Find where the sign-off starts and cut-off the email at that point.
         """
+        # first handle any sent from iphone stuff
+        if len(sent_from_device_matches) > 0:
+            sent_from_device_matches_start = [
+                match.start() for match in sent_from_device_matches
+            ]
+            body = body[:sent_from_device_matches_start[0]]
+
         # Find where signature starts
         signoff_matches_start_positions = [
             signoff_match.start() for signoff_match in signoff_matches
         ]
 
-        if len(signoff_matches_start_positions) > 0:
+        if len(signoff_matches_start_positions) > 0 and signoff_matches_start_positions[0] < len(body):
             # If a sign-off was found, cut-off email at starting position
             body = body[:signoff_matches_start_positions[0]]
 
