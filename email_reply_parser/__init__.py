@@ -69,7 +69,7 @@ class EmailMessage(object):
         r"|(^Enviado de .{,50}$)"  # Portuguese
         r"|(^Enviado desde .{,50}$)"  # Portuguese
         r"|(^Enviado do .{,50}$)"  # Portuguese
-        r"|(^Obter o Outlook para Android.{,10}$)"  # Portuguese
+        r"|(^Obter o Outlook para Android)"  # Portuguese
         r"|(^Verstuurd vanaf .{,50}$)"  # Dutch
         r"|(^Envoye de .{,50}$)"  # French
         r"|(^Envoye depuis .{,50}$)"  # French
