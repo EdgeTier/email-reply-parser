@@ -1,7 +1,6 @@
 import os
 import sys
 import unittest
-import re
 import time
 from email_reply_parser import EmailReplyParser
 
