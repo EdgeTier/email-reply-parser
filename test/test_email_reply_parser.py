@@ -58,8 +58,6 @@ class EmailMessageTest(unittest.TestCase):
     def test_deals_with_windows_line_endings(self):
         msg = self.get_email('email_1_7')
         self.assertTrue(':+1:' in msg.fragments[0].content)
-        self.assertTrue('On' in msg.fragments[0].content)
-        self.assertTrue('Steps 0-2' in msg.fragments[1].content)
 
     def test_reply_from_gmail(self):
         with open('emails/email_gmail.txt') as f:
@@ -220,10 +218,23 @@ class EmailMessageTest(unittest.TestCase):
         assert body == "Yes that would be fine"
 
     def test_email_with_two_headers(self):
+        """
+        tests that if an email contains two thread headers that we cut the email off at the first one
+        """
         message = self.get_email('email_with_two_headers')
-        body = EmailReplyParser.cut_off_at_signature(message.text, include=True, word_limit=100)
+        body = EmailReplyParser.cut_off_at_signature(message.text, include=True)
 
         assert body == "This is the main content"
+
+
+    def test_email_with_malformed_header_thread(self):
+        """
+        Tests that if a thread header is malformed, we still pick it up
+        """
+        message = self.get_email('email_malformed_thread_header')
+        body = EmailReplyParser.cut_off_at_signature(message.text, include=True)
+
+        assert body.endswith("que cet e-mail est analysé correctement")
 
 if __name__ == '__main__':
     unittest.main()

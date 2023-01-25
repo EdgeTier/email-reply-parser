@@ -121,31 +121,31 @@ class EmailMessage(object):
         r"|De|Enviado|Para|Assunto|Data):\*?"  # Portuguese
     )
     _MULTI_QUOTE_HDR_REGEX = (
-        r"(On (.{,120})\n?wrote(\s+)?:"  # English
-        r"|Il (.{,120})\n?ha(\s+)?:"  # Italian
-        r"|mån (.{,120})\n?skrev(\s+)?:"  # Swedish
-        r"|man (.{,120})\n?skrev(\s+):"  # Swedish
-        r"|tis (.{,120})\n?skrev(\s+):"  # Norwegian
-        r"|tors (.{,120})\n?skrev(\s+):"  # Norwegian
-        r"|ons (.{,120})\n?skrev(\s+):"  # Norwegian
-        r"|Am (.{,120})\n?schrieb(\s+)?::"  # German
-        r"|ma (.{,120})\n?kirjoitti(\s+)?:"  # Finnish
-        r"|ti (.{,120})\n?kirjoitti(\s+)?:"  # Finnish
-        r"|pe (.{,120})\n?kirjoitti(\s+)?:"  # Finnish
-        r"|ke (.{,120})\n?kirjoitti(\s+)?:"  # Finnish
-        r"|fre (.{,120})\n?skrev(\s+)?:"  # Danish
-        r"|Den (.{,120})\n?skrev(\s+)?:"  # Danish
-        r"|tir (.{,120})\n?skrev(\s+)?:"  # Danish
-        r"|Op (.{,120})\n?schreef(\s+)?:"  # Dutch
-        r"|Op (.{,120})\n?geschreven(\s+)?:"  # Dutch
-        r"|A (.{,120})\n?escreveu(\s+)?:"  # Portuguese
-        r"|No dia (.{,120})\n?escreveu(\s+)?:"  # Portuguese
-        r"|El (.{,120})\n?escribio(\s+)?:"  # Spanish
-        r"|Le (.{,120})\n?ecrit(\s+)?:"  # French
-        r"|Le (.{,120})\n?écrit(\s+)?:"  # French
-        r"|Dna (.{,120})\n?napisala\(a\)(\s+)?:"  # Slovak
-        r"|po (.{,120})\n?napisal\(a\)(\s+)?:"  # Slovak
-        r"|Dnia (.{,120})\n?napisal\(a\)(\s+)?:)"  # Polish
+        r"(On (.{,120})\n?(.{,50})?wrote(\s+)?:"  # English
+        r"|Il (.{,120})\n?(.{,50})?ha(\s+)?:"  # Italian
+        r"|mån (.{,120})\n?(.{,50})?skrev(\s+)?:"  # Swedish
+        r"|man (.{,120})\n?(.{,50})?skrev(\s+):"  # Swedish
+        r"|tis (.{,120})\n?(.{,50})?skrev(\s+):"  # Norwegian
+        r"|tors (.{,120})\n?(.{,50})?skrev(\s+):"  # Norwegian
+        r"|ons (.{,120})\n?(.{,50})?skrev(\s+):"  # Norwegian
+        r"|Am (.{,120})\n?(.{,50})?schrieb(\s+)?::"  # German
+        r"|ma (.{,120})\n?(.{,50})?kirjoitti(\s+)?:"  # Finnish
+        r"|ti (.{,120})\n?(.{,50})?kirjoitti(\s+)?:"  # Finnish
+        r"|pe (.{,120})\n?(.{,50})?kirjoitti(\s+)?:"  # Finnish
+        r"|ke (.{,120})\n?(.{,50})?kirjoitti(\s+)?:"  # Finnish
+        r"|fre (.{,120})\n?(.{,50})?skrev(\s+)?:"  # Danish
+        r"|Den (.{,120})\n?(.{,50})?skrev(\s+)?:"  # Danish
+        r"|tir (.{,120})\n?(.{,50})?skrev(\s+)?:"  # Danish
+        r"|Op (.{,120})\n?(.{,50})?schreef(\s+)?:"  # Dutch
+        r"|Op (.{,120})\n?(.{,50})?geschreven(\s+)?:"  # Dutch
+        r"|A (.{,120})\n?(.{,50})?escreveu(\s+)?:"  # Portuguese
+        r"|No dia (.{,120})\n?(.{,50})?escreveu(\s+)?:"  # Portuguese
+        r"|El (.{,120})\n?(.{,50})?escribio(\s+)?:"  # Spanish
+        r"|Le (.{,120})\n?(.{,50})?ecrit(\s+)?:"  # French
+        r"|Le (.{,120})\n?(.{,50})?écrit(\s+)?:"  # French
+        r"|Dna (.{,120})\n?(.{,50})?napisala\(a\)(\s+)?:"  # Slovak
+        r"|po (.{,120})\n?(.{,50})?napisal\(a\)(\s+)?:"  # Slovak
+        r"|Dnia (.{,120})\n?(.{,50})?napisal\(a\)(\s+)?:)"  # Polish
     )
     MULTI_QUOTE_HDR_REGEX = re.compile(_MULTI_QUOTE_HDR_REGEX)
 
