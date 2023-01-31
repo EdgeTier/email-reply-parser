@@ -236,5 +236,26 @@ class EmailMessageTest(unittest.TestCase):
 
         assert body.endswith("que cet e-mail est analysé correctement")
 
+    def test_parse_polish_email_headers(self):
+        """
+        Tests that we're parsing the 'On Jan 31 X wrote:' correctly in Polish. We test 5 different types that appear
+        """
+        message = self.get_email('email_polish_1')
+        body = EmailReplyParser.cut_off_at_signature(message.text, include=True)
+        assert body == "Ten tekst powinien pojawić się w treści"
+
+        message = self.get_email('email_polish_2')
+        body = EmailReplyParser.cut_off_at_signature(message.text, include=True)
+        assert body == "Ten tekst powinien pojawić się w treści"
+
+        message = self.get_email('email_polish_3')
+        body = EmailReplyParser.cut_off_at_signature(message.text, include=True)
+        assert body == "Ten tekst powinien pojawić się w treści"
+
+        message = self.get_email('email_polish_4')
+        body = EmailReplyParser.cut_off_at_signature(message.text, include=True)
+        assert body == "Ten tekst powinien pojawić się w treści"
+
+
 if __name__ == '__main__':
     unittest.main()

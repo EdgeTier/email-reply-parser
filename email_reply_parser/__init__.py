@@ -74,7 +74,8 @@ class EmailMessage(object):
         r"|(^Envoye de .{,50}$)"  # French
         r"|(^Envoye depuis .{,50}$)"  # French
         r"|(^Envoye a partir .{,50}$)"  # French
-        r"|(^Wyslane z .{,50}$)",  # Polish,
+        r"|(^Wyslane z .{,50}$)"  # Polish
+        r"|(^Wysłane z .{,50}$)",  # Polish
         flags=re.MULTILINE
     )
 
@@ -104,6 +105,7 @@ class EmailMessage(object):
         r"|Dna.*napisal\(a\)(.*?):$"  # Slovak
         r"|po.*napisal\(a\)(.*?):$"  # Slovak
         r"|Dnia.*napisal\(a\)(.*?):$"  # Polish
+        r"|Dnia.*napisał\(a\)(.*?):$"  # Polish
     )
 
     QUOTED_REGEX = re.compile(r"(>+)")
@@ -145,7 +147,14 @@ class EmailMessage(object):
         r"|Le (.{,120})\n?(.{,50})?écrit(\s+)?:"  # French
         r"|Dna (.{,120})\n?(.{,50})?napisala\(a\)(\s+)?:"  # Slovak
         r"|po (.{,120})\n?(.{,50})?napisal\(a\)(\s+)?:"  # Slovak
-        r"|Dnia (.{,120})\n?(.{,50})?napisal\(a\)(\s+)?:)"  # Polish
+        r"|Dnia (.{,120})\n?(.{,50})?napisal\(a\)(\s+)?:" # Polish
+        r"|Dnia (.{,120})\n?(.{,50})?napisał\(a\)(\s+)?:" # Polish
+        r"|W dniu (.{,120})\n?(.{,50})?napisal(\s+)?:" # Polish
+        r"|W dniu (.{,120})\n?(.{,50})?napisał(\s+)?:" # Polish
+        r"|Wiadomość napisana (.{,120})\n?(.{,50})?o godz" # Polish
+        r"|Wiadomosc napisana (.{,120})\n?(.{,50})?o godz" # Polish
+        r"|Temat: (.{,120})\n?(.{,50})?Adresat:" # Polish
+        r")"
     )
     MULTI_QUOTE_HDR_REGEX = re.compile(_MULTI_QUOTE_HDR_REGEX)
 
