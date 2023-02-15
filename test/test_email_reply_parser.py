@@ -226,7 +226,6 @@ class EmailMessageTest(unittest.TestCase):
 
         assert body == "This is the main content"
 
-
     def test_email_with_malformed_header_thread(self):
         """
         Tests that if a thread header is malformed, we still pick it up
@@ -255,6 +254,25 @@ class EmailMessageTest(unittest.TestCase):
         message = self.get_email('email_polish_4')
         body = EmailReplyParser.cut_off_at_signature(message.text, include=True)
         assert body == "Ten tekst powinien pojawić się w treści"
+
+    def test_sent_from_device_in_thread_languages(self):
+        """
+        Tests that if the thread becomes malformed we will be able to parse out the correct part if a sent from device is present
+        """
+        message_english = self.get_email("sent_from_device_in_thread_english")
+        message_hungarian = self.get_email("sent_from_device_in_thread_hungarian")
+        message_dutch = self.get_email("sent_from_device_in_thread_dutch")
+        message_romanian = self.get_email("sent_from_device_in_thread_romanian")
+
+        body_english = EmailReplyParser.cut_off_at_signature(message_english.text)
+        body_hungarian = EmailReplyParser.cut_off_at_signature(message_hungarian.text)
+        body_dutch = EmailReplyParser.cut_off_at_signature(message_dutch.text)
+        body_romanian = EmailReplyParser.cut_off_at_signature(message_romanian.text)
+
+        assert body_english == "Yes that would be fine"
+        assert body_hungarian == "Yes that would be fine"
+        assert body_dutch == "Yes that would be fine"
+        assert body_romanian == "Yes that would be fine"
 
 
 if __name__ == '__main__':

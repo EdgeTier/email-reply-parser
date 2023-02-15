@@ -58,24 +58,33 @@ class EmailMessage(object):
     SENT_FROM_DEVICE_REGEX = re.compile(
         r"(^--|^__|^-\w)"
         r"|(^Sent from .{,50}$)"  # English
-        r"|(^Inviato da .{,50}$)"  # Italian
-        r"|(^Inviato dal .{,50}$)"  # Italian
-        r"|(^Skickat från .{,50}$)"  # Swedish
-        r"|(^Skickat fran .{,50}$)"  # Swedish
-        r"|(^Gesendet mit.{,50}$)"  # German
+        r"|(^Sent using the mobile mail app)"  # English
+        r"|(^Get Outlook for .{,50}$)"  # English
+        r"|(^Sendt fra .{,50}$)"  # Danish
+        r"|(^Verstuurd vanaf.{,50}$)"  # Dutch
+        r"|(^Verzonden vanuit .{,50}$)"  # Dutch
         r"|(^Hanki .{,50}$)"  # Finnish
         r"|(^Lahetetty .{,50}$)"  # Finnish
-        r"|(^Sendt fra .{,50}$)"  # Danish
-        r"|(^Enviado de .{,50}$)"  # Portuguese
-        r"|(^Enviado desde .{,50}$)"  # Portuguese
-        r"|(^Enviado do .{,50}$)"  # Portuguese
-        r"|(^Obter o Outlook para Android)"  # Portuguese
-        r"|(^Verstuurd vanaf .{,50}$)"  # Dutch
         r"|(^Envoye de .{,50}$)"  # French
         r"|(^Envoye depuis .{,50}$)"  # French
         r"|(^Envoye a partir .{,50}$)"  # French
+        r"|(^Gesendet mit.{,50}$)"  # German
+        r"|(^Gesendet von.{,50}$)"  # German
+        r"|(^Estale apo .{,50}$)"  # Greek
+        r"|(.{0,50} kuldve$)"  # Hungarian
+        r"|(^Inviato da .{,50}$)"  # Italian
+        r"|(^Inviato dal .{,50}$)"  # Italian
         r"|(^Wyslane z .{,50}$)"  # Polish
-        r"|(^Wysłane z .{,50}$)",  # Polish
+        r"|(^Wysłane z .{,50}$)"  # Polish
+        r"|(^Enviado de .{,50}$)"  # Portuguese
+        r"|(^Enviado desde .{,50}$)"  # Portuguese
+        r"|(^Enviado do .{,50}$)"  # Portuguese
+        r"|(^Enviado a partir .{,50}$)"  # Portuguese
+        r"|(^Obter o Outlook .{,50}$)"  # Portuguese
+        r"|(^Obtener Outlook .{,50}$)"  # Spanish
+        r"|(^Trimis de pe .{,50}$)"  # Romanian
+        r"|(^Skickat från .{,50}$)"  # Swedish
+        r"|(^Skickat fran .{,50}$)",  # Swedish
         flags=re.MULTILINE
     )
 
