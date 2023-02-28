@@ -134,6 +134,7 @@ class EmailMessage(object):
     _MULTI_QUOTE_HDR_REGEX = (
         r"(On (.{,120})\n?(.{,50})?wrote(\s+)?:"  # English
         r"|Il (.{,120})\n?(.{,50})?ha(\s+)?:"  # Italian
+        r"|Il (.{,120})\n?(.{,50})?ha(\s+)?scritto:"  # Italian
         r"|mån (.{,120})\n?(.{,50})?skrev(\s+)?:"  # Swedish
         r"|man (.{,120})\n?(.{,50})?skrev(\s+):"  # Swedish
         r"|tis (.{,120})\n?(.{,50})?skrev(\s+):"  # Norwegian
