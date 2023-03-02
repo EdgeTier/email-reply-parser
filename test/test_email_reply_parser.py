@@ -11,17 +11,17 @@ class EmailMessageTest(unittest.TestCase):
     def test_simple_body(self):
         message = self.get_email('email_1_1')
 
-        self.assertEqual(3, len(message.fragments))
+        self.assertEqual(2, len(message.fragments))
         self.assertEqual(
-            [False, True, True],
+            [False, True],
             [f.signature for f in message.fragments]
         )
         self.assertEqual(
-            [False, True, True],
+            [False, True],
             [f.hidden for f in message.fragments]
         )
         self.assertTrue("folks" in message.fragments[0].content)
-        self.assertTrue("riak-users" in message.fragments[2].content)
+        self.assertTrue("riak-users" in message.fragments[1].content)
 
     def test_multiline_reply_headers(self):
         message = self.get_email('email_1_6')
@@ -274,6 +274,37 @@ class EmailMessageTest(unittest.TestCase):
         assert body_dutch == "Yes that would be fine"
         assert body_romanian == "Yes that would be fine"
 
+
+    def test_remove_non_alphabetic_signature_patter(self):
+        """
+        Tests that we we pick up things like --- and  * * * as signatures and ignore bullets
+        """
+
+        message_stars_signoff = self.get_email("email_with_stars_signoff")
+        body = EmailReplyParser.cut_off_at_signature(message_stars_signoff.text)
+        assert body.endswith("Jim")
+
+        message_dash_signoff = self.get_email("email_signature")
+        body = EmailReplyParser.cut_off_at_signature(message_dash_signoff.text)
+        assert body.endswith("Perrin Aybara")
+
+        message_bullets = self.get_email("email_with_bullets")
+        body = EmailReplyParser.cut_off_at_signature(message_bullets.text)
+        assert body.endswith("Jane")
+
+    def test_remove_quoted_text(self):
+        """Tests that we cut off an email correctly once we see quoted text '>'"""
+        message = self.get_email("email_with_quoted_text")
+        body = EmailReplyParser.cut_off_at_signature(message.text)
+        assert body.endswith("Tony")
+
+    def test_paul(self):
+        """
+        Tests that we're parsing the 'On Jan 31 X wrote:' correctly in Polish. We test 5 different types that appear
+        """
+        message = self.get_email('test_paul')
+        body = EmailReplyParser.cut_off_at_signature(message.text, include=True)
+        #assert body == "Ten tekst powinien pojawić się w treści"
 
 if __name__ == '__main__':
     unittest.main()
