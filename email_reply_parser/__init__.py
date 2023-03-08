@@ -111,6 +111,7 @@ class EmailMessage(object):
         r"|A.*escreveu(.*?):$"  # Portuguese
         r"|Le.*ecrit(.*?):$"  # French
         r"|El.*escribio(.*?):$"  # Spanish
+        r"|El.*escribió(.*?):$"  # Spanish
         r"|Dna.*napisal\(a\)(.*?):$"  # Slovak
         r"|po.*napisal\(a\)(.*?):$"  # Slovak
         r"|Dnia.*napisal\(a\)(.*?):$"  # Polish
