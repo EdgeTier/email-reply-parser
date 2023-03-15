@@ -111,6 +111,7 @@ class EmailMessage(object):
         r"|A.*escreveu(.*?):$"  # Portuguese
         r"|Le.*ecrit(.*?):$"  # French
         r"|El.*escribio(.*?):$"  # Spanish
+        r"|El.*escribió(.*?):$"  # Spanish
         r"|Dna.*napisal\(a\)(.*?):$"  # Slovak
         r"|po.*napisal\(a\)(.*?):$"  # Slovak
         r"|Dnia.*napisal\(a\)(.*?):$"  # Polish
@@ -153,6 +154,7 @@ class EmailMessage(object):
         r"|A (.{,120})\n?(.{,50})?escreveu(\s+)?:"  # Portuguese
         r"|No dia (.{,120})\n?(.{,50})?escreveu(\s+)?:"  # Portuguese
         r"|El (.{,120})\n?(.{,50})?escribio(\s+)?:"  # Spanish
+        r"|El (.{,120})\n?(.{,50})?escribió(\s+)?:"  # Spanish
         r"|Le (.{,120})\n?(.{,50})?ecrit(\s+)?:"  # French
         r"|Le (.{,120})\n?(.{,50})?écrit(\s+)?:"  # French
         r"|Dna (.{,120})\n?(.{,50})?napisala\(a\)(\s+)?:"  # Slovak

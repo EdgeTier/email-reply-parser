@@ -274,7 +274,6 @@ class EmailMessageTest(unittest.TestCase):
         assert body_dutch == "Yes that would be fine"
         assert body_romanian == "Yes that would be fine"
 
-
     def test_remove_non_alphabetic_signature_patter(self):
         """
         Tests that we we pick up things like --- and  * * * as signatures and ignore bullets
@@ -305,6 +304,15 @@ class EmailMessageTest(unittest.TestCase):
         message = self.get_email('test_paul')
         body = EmailReplyParser.cut_off_at_signature(message.text, include=True)
         #assert body == "Ten tekst powinien pojawić się w treści"
+
+    def test_spanish_signoff(self):
+        """
+        Tests that we're parsing the 'On Jan 31 X wrote:' correctly in Spanish.
+        """
+        message = self.get_email('spanish_signoff')
+        body = EmailReplyParser.cut_off_at_signature(message.text, include=True)
+        assert body.endswith('Salud')
+
 
 if __name__ == '__main__':
     unittest.main()
