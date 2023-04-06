@@ -313,6 +313,14 @@ class EmailMessageTest(unittest.TestCase):
         body = EmailReplyParser.cut_off_at_signature(message.text, include=True)
         assert body.endswith('Salud')
 
+    def test_remove_header_warnings(self):
+        """
+        Tests that we remove any warnings about external emails at the top of emails
+        """
+        message = self.get_email('email_with_header_warning')
+        body = EmailReplyParser.cut_off_at_signature(message.text, include=True)
+        assert body.startswith('Hi,')
+        assert body.endswith('Thanks')
 
 if __name__ == '__main__':
     unittest.main()
