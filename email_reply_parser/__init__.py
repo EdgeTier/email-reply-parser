@@ -184,6 +184,10 @@ class EmailMessage(object):
         flags=re.IGNORECASE
     )
 
+    EMAIL_HEADER_WARNINGS = [
+        "CAUTION:This message is from an EXTERNAL SENDER - be CAUTIOUS, Do NOT Click any links or Open any attachments if you were not expecting them."
+    ]
+
     def __init__(self, text):
         self.fragments = []
         self.fragment = None
@@ -329,6 +333,9 @@ class EmailMessage(object):
         else:
             body = '\n'.join(body_lines)
 
+        # Finally remove any warning headers from the email
+        body = EmailMessage.remove_substrings_from_text(body, EmailMessage.EMAIL_HEADER_WARNINGS)
+
         return body
 
     @staticmethod
@@ -427,6 +434,17 @@ class EmailMessage(object):
             body = " ".join(email_body_list[:word_limit + newlines_offset]).replace(" \n", "\n")
 
         return body
+
+    @staticmethod
+    def remove_substrings_from_text(body: str, substrings: List[str]) -> str:
+        """
+        Given an email body and a list of substrings to remove (e.g. external email warning), loop through them and
+        replace
+        """
+        for substring in substrings:
+            body = re.sub(substring, "", body)
+
+        return body.strip()
 
 
 class Fragment(object):
