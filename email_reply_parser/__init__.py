@@ -341,8 +341,8 @@ class EmailMessage(object):
     @staticmethod
     def keep_signoff(
             body: str,
-            signoff_matches: List[re.Match],
-            sent_from_device_matches: List[re.Match],
+            signoff_matches,
+            sent_from_device_matches,
             word_limit: Optional[int] = None
     ):
         """
@@ -393,8 +393,8 @@ class EmailMessage(object):
     @staticmethod
     def remove_signoff(
             body: str,
-            signoff_matches: List[re.Match],
-            sent_from_device_matches: List[re.Match],
+            signoff_matches,
+            sent_from_device_matches,
             word_limit: Optional[int] = None
     ):
         """
