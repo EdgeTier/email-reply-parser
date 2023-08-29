@@ -97,7 +97,9 @@ class EmailMessage(object):
         r"|tors.*skrev(.*?):$"  # Norwegian
         r"|ons.*skrev(.*?):$"  # Norwegian
         r"|Am.*schrieb(.*?):$"  # German
-        r"|Von.*gesendet(.*?)"  # German
+        r"|am.*schrieb(.*?):$"  # German
+        r"|Von.*gesendet(.*?):$"  # German
+        r"|von.*gesendet(.*?):$"  # German -- Corrected captialisation
         r"|ma.*kirjoitti(.*?):$"  # Finnish
         r"|ti.*kirjoitti(.*?):$"  # Finnish
         r"|pe.*kirjoitti(.*?):$"  # Finnish
@@ -126,6 +128,7 @@ class EmailMessage(object):
         r"|Från|Datum|Till|Ämne|Skickat"  # Swedish
         r"|Fran|Datum|Till|Amne|Skickat"  # Swedish
         r"|Von|Gesendet|An|Betreff|Datum"  # German
+        r"|von|Gesendet|an|Betreff|Datum"  # German -- Correct preposition capitalisation
         r"|Lähettäjä|Päiväys|Vastaanottaja|Aihe|Lähetetty"  # Finnish
         r"|Lahettaja|Paivays|Vastaanottaja|Aihe|Lähetetty"  # Finnish
         r"|Fra|Sendt|Til|Emne|Dato"  # Danish
@@ -141,7 +144,9 @@ class EmailMessage(object):
         r"|tis (.{,120})\n?(.{,50})?skrev(\s+):"  # Norwegian
         r"|tors (.{,120})\n?(.{,50})?skrev(\s+):"  # Norwegian
         r"|ons (.{,120})\n?(.{,50})?skrev(\s+):"  # Norwegian
-        r"|Am (.{,120})\n?(.{,50})?schrieb(\s+)?::"  # German
+        r"|Am (.{,120})\n?(.{,50})?schrieb(\s+)?:"  # German
+        r"|am (.{,120})\n?(.{,50})?schrieb(\s+)?:"  # German -- Correct preposition capitalisation
+        r"|(.*(schrieb am.*)?.*(.+\(.*\) [^\s@]+@[^\s@]+\.[^\s@]+).*)?:"  # Email and time information
         r"|ma (.{,120})\n?(.{,50})?kirjoitti(\s+)?:"  # Finnish
         r"|ti (.{,120})\n?(.{,50})?kirjoitti(\s+)?:"  # Finnish
         r"|pe (.{,120})\n?(.{,50})?kirjoitti(\s+)?:"  # Finnish

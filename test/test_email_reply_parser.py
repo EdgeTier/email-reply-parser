@@ -116,7 +116,7 @@ class EmailMessageTest(unittest.TestCase):
     def test_include_signature_true(self):
         # Test that the cut_off_at_signature function ends an email after the sign-off when include = True
         message_english = self.get_email('email_signature')
-        message_german = self.get_email('email_german')
+        message_german = self.get_email('email_german_1')
         message_french = self.get_email('email_french')
 
         body_english = EmailReplyParser.cut_off_at_signature(message_english.text, include=True, word_limit=100)
@@ -130,7 +130,7 @@ class EmailMessageTest(unittest.TestCase):
     def test_include_signature_false(self):
         # Test that the cut_off_at_signature function ends an email before the sign-off when include = False
         message_english = self.get_email('email_signature')
-        message_german = self.get_email('email_german')
+        message_german = self.get_email('email_german_1')
         message_french = self.get_email('email_french')
 
         body_english = EmailReplyParser.cut_off_at_signature(message_english.text, include=False, word_limit=100)
@@ -188,16 +188,22 @@ class EmailMessageTest(unittest.TestCase):
         message_portuguese = self.get_email('email_iphone_portuguese')
         message_polish = self.get_email('email_iphone_polish')
         message_finnish = self.get_email('email_iphone_finnish')
+        message_german_1 = self.get_email('email_german_2')
+        message_german_2 = self.get_email('email_german_3')
 
         body_french = EmailReplyParser.cut_off_at_signature(message_french.text)
         body_portuguese = EmailReplyParser.cut_off_at_signature(message_portuguese.text)
         body_polish = EmailReplyParser.cut_off_at_signature(message_polish.text)
         body_finnish = EmailReplyParser.cut_off_at_signature(message_finnish.text)
+        body_german_1 = EmailReplyParser.cut_off_at_signature(message_german_1.text)
+        body_german_2 = EmailReplyParser.cut_off_at_signature(message_german_2.text)
 
         assert body_french.endswith("Au revoir,\n\nKelsier")
         assert body_portuguese.endswith("Adeus,\n\nOtis")
         assert body_polish.endswith("Do widzenia,\n\nTriss")
         assert body_finnish.endswith("Hyvästi,\n\nTorin")
+        assert body_german_1.endswith("Auf Wiedersehen (Test)")
+        assert body_german_2.endswith("Auf Wiedersehen (Test)")
 
     def test_remove_SIG_REGEX_start(self):
         # Test that any "Sent from iPhone" messages are removed at the beginning of an email
