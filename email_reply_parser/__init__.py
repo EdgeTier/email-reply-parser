@@ -177,7 +177,7 @@ class EmailMessage(object):
         r"vielen dank im voraus|Mit freundlichen grussen|"
         r"saluti|Cordiali saluti|Distinti saluti|buona giornata|cordialmente|"
         r"o zi buna|o zi buna va urez|cu respect|cu stima|cu bine|toate cele bune|"
-        r"saludos cordiales|atentamente|un saludo)(.?)(,|\n))|"
+        r"saludos cordiales|atentamente|un saludo)(.{0,20})(,|\n))|"
         r"((thank you|thanks!?|thank you in advance|thanks in advance|merci|danke|"
         r"grazie|grazie mille|multumesc\s?|multumesc anticipat|multumesc frumos|gracias|muchos gracias)(,?!?\n))|"
         r"(Pozdrawiam.?|Z powazaniem|z pozdrowieniami)",
@@ -301,6 +301,11 @@ class EmailMessage(object):
 
         # Note we need to ignore the sent from if it is on the first line of the message
         end_of_first_line_index = body_clean.find("\n")
+
+        # If the signoff match is in the first line of an email, it is likely a mistake (e.g. "Dear Mr. George Best,")
+        signoff_matches = [match for match in signoff_matches if match.start() > end_of_first_line_index]
+
+
         sent_from_device_matches = []
         if end_of_first_line_index != -1:
             sent_from_device_matches = EmailMessage.SENT_FROM_DEVICE_REGEX.finditer(body_clean)

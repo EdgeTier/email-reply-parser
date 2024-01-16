@@ -322,5 +322,22 @@ class EmailMessageTest(unittest.TestCase):
         assert body.startswith('Hi,')
         assert body.endswith('Thanks')
 
+
+    def test_dont_cut_signature_at_start_of_email(self):
+        """
+        Some e-emails will start with things like "Dear Mr. Best,\n\nHow are you?" these can get parsed out at the end
+        of an email unless handled correctly. This test just makes sure that we handle those correctly.
+        """
+        first_message = self.get_email("george_best")
+        second_message = self.get_email("dutch_beste_example")
+
+        body_first_message = EmailReplyParser.cut_off_at_signature(first_message.text)
+        body_second_message = EmailReplyParser.cut_off_at_signature(second_message.text)
+
+        assert body_first_message.startswith("Dear George Best,")
+        assert body_first_message.endswith("Phil")
+        assert body_second_message.startswith("Beste,")
+        assert body_second_message.endswith("Timmy")
+
 if __name__ == '__main__':
     unittest.main()
