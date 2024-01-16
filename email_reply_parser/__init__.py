@@ -302,9 +302,8 @@ class EmailMessage(object):
         # Note we need to ignore the sent from if it is on the first line of the message
         end_of_first_line_index = body_clean.find("\n")
 
-        # If the signoff match is in the first line or 30 characters (if all on one line) of an email, it is likely a mistake (e.g. "Dear Mr. George Best,")
-        signoff_match_threshold = end_of_first_line_index if end_of_first_line_index != -1 else 30
-        signoff_matches = [match for match in signoff_matches if match.start() > signoff_match_threshold]
+        # If the signoff match is in the first line of an email, it is likely a mistake (e.g. "Dear Mr. George Best,")
+        signoff_matches = [match for match in signoff_matches if match.start() > end_of_first_line_index]
 
 
         sent_from_device_matches = []
