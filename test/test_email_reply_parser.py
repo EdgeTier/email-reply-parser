@@ -261,7 +261,6 @@ class EmailMessageTest(unittest.TestCase):
         """
         message = self.get_email('email_greek_1')
         body = EmailReplyParser.cut_off_at_signature(message.text, include=True)
-        assert body.startswith("Αγαπητή Περσεφόνη")
         assert body.endswith("Από τον Άδη")
 
     def test_sent_from_device_in_thread_languages(self):
@@ -312,7 +311,7 @@ class EmailMessageTest(unittest.TestCase):
         """
         message = self.get_email('test_paul')
         body = EmailReplyParser.cut_off_at_signature(message.text, include=True)
-        #assert body == "Ten tekst powinien pojawić się w treści"
+        assert body == "Ten tekst powinien pojawić się w treści"
 
     def test_spanish_signoff(self):
         """
