@@ -255,6 +255,14 @@ class EmailMessageTest(unittest.TestCase):
         body = EmailReplyParser.cut_off_at_signature(message.text, include=True)
         assert body == "Ten tekst powinien pojawić się w treści"
 
+    def test_parse_greek_email_headers(self):
+        """
+        Tests that we're parsing the 'On Jan 31 X wrote:' correctly in Polish. We test 5 different types that appear
+        """
+        message = self.get_email('email_greek_1')
+        body = EmailReplyParser.cut_off_at_signature(message.text, include=True)
+        assert body.endswith("Από τον Άδη")
+
     def test_sent_from_device_in_thread_languages(self):
         """
         Tests that if the thread becomes malformed we will be able to parse out the correct part if a sent from device is present
@@ -303,7 +311,7 @@ class EmailMessageTest(unittest.TestCase):
         """
         message = self.get_email('test_paul')
         body = EmailReplyParser.cut_off_at_signature(message.text, include=True)
-        #assert body == "Ten tekst powinien pojawić się w treści"
+        assert body == "Ten tekst powinien pojawić się w treści"
 
     def test_spanish_signoff(self):
         """
