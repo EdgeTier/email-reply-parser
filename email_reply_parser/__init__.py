@@ -99,6 +99,7 @@ class EmailMessage(object):
         r"|ons.*skrev(.*?):$"  # Norwegian
         r"|Am.*schrieb(.*?):$"  # German
         r"|Von.*gesendet(.*?)"  # German
+        r"|.*[>|;] schrieb.*[0-9]{2}:[0-9]{2}:"  # German
         r"|ma.*kirjoitti(.*?):$"  # Finnish
         r"|ti.*kirjoitti(.*?):$"  # Finnish
         r"|pe.*kirjoitti(.*?):$"  # Finnish
@@ -110,6 +111,7 @@ class EmailMessage(object):
         r"|Op.*geschreven(.*?):$"  # Dutch
         r"|No dia.*escreveu(.*?):$"  # Portuguese
         r"|A.*escreveu(.*?):$"  # Portuguese
+        r"|[A-Z].*> escreveu(.*?):$"  # Portuguese
         r"|Le.*ecrit(.*?):$"  # French
         r"|El.*escribio(.*?):$"  # Spanish
         r"|El.*escribió(.*?):$"  # Spanish
@@ -120,6 +122,8 @@ class EmailMessage(object):
         r"|Dnia.*napisal\(a\)(.*?):$"  # Polish
         r"|Dnia.*napisał\(a\)(.*?):$"  # Polish
         r"|Στις.*έγραψε(.*?):$"  # Greek
+        r"|.*[0-9]{2}:[0-9]{2}.*a scris(.*?):$"  # Romanian
+        r"|Dne.*napsal(.*?):$"  # Czech
     )
 
     QUOTED_REGEX = re.compile(r"(>+)")
@@ -173,7 +177,7 @@ class EmailMessage(object):
         r"|Wiadomość napisana (.{,120})\n?(.{,50})?o godz" # Polish
         r"|Wiadomosc napisana (.{,120})\n?(.{,50})?o godz" # Polish
         r"|Temat: (.{,120})\n?(.{,50})?Adresat:" # Polish
-        r"Στις (.{,120})\n?(.{,50})?έγραψε(\s+)?:"  # Greek
+        r"|Στις (.{,120})\n?(.{,50})?έγραψε(\s+)?:"  # Greek
         r")"
     )
     MULTI_QUOTE_HDR_REGEX = re.compile(_MULTI_QUOTE_HDR_REGEX)

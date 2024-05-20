@@ -208,36 +208,10 @@ class EmailMessageTest(unittest.TestCase):
         assert body_english.startswith('Hi,\n\nCase where the')
         assert body_german.startswith('Hallo,\n\nFall, in dem das')
 
-    def test_sent_from_device_in_thread(self):
-        """
-        Tests that if the thread becomes malformed we will be able to parse out the correct part if a sent from device is present
-        """
-        message = self.get_email("sent_from_device_in_thread")
-        body = EmailReplyParser.cut_off_at_signature(message.text)
 
-        assert body == "Yes that would be fine"
-
-    def test_email_with_two_headers(self):
+    def test_parse_response_headers(self):
         """
-        tests that if an email contains two thread headers that we cut the email off at the first one
-        """
-        message = self.get_email('email_with_two_headers')
-        body = EmailReplyParser.cut_off_at_signature(message.text, include=True)
-
-        assert body == "This is the main content"
-
-    def test_email_with_malformed_header_thread(self):
-        """
-        Tests that if a thread header is malformed, we still pick it up
-        """
-        message = self.get_email('email_malformed_thread_header')
-        body = EmailReplyParser.cut_off_at_signature(message.text, include=True)
-
-        assert body.endswith("que cet e-mail est analysé correctement")
-
-    def test_parse_polish_email_headers(self):
-        """
-        Tests that we're parsing the 'On Jan 31 X wrote:' correctly in Polish. We test 5 different types that appear
+        Tests that we are parsing out email response headers correctly for multiple languages
         """
         message = self.get_email('email_polish_1')
         body = EmailReplyParser.cut_off_at_signature(message.text, include=True)
@@ -255,13 +229,41 @@ class EmailMessageTest(unittest.TestCase):
         body = EmailReplyParser.cut_off_at_signature(message.text, include=True)
         assert body == "Ten tekst powinien pojawić się w treści"
 
-    def test_parse_greek_email_headers(self):
-        """
-        Tests that we're parsing the 'On Jan 31 X wrote:' correctly in Polish. We test 5 different types that appear
-        """
         message = self.get_email('email_greek_1')
         body = EmailReplyParser.cut_off_at_signature(message.text, include=True)
         assert body.endswith("Από τον Άδη")
+
+        message = self.get_email('email_malformed_thread_header')
+        body = EmailReplyParser.cut_off_at_signature(message.text, include=True)
+
+        assert body.endswith("que cet e-mail est analysé correctement")
+
+        message = self.get_email('email_with_two_headers')
+        body = EmailReplyParser.cut_off_at_signature(message.text, include=True)
+
+        assert body == "This is the main content"
+
+        message = self.get_email('email_portuguese_1')
+        body = EmailReplyParser.cut_off_at_signature(message.text, include=True)
+        assert body == "This is the main body"
+
+        message = self.get_email('email_romanian_1')
+        body = EmailReplyParser.cut_off_at_signature(message.text, include=True)
+        assert body == "This is the actual email"
+
+        message = self.get_email('email_german_2')
+        body = EmailReplyParser.cut_off_at_signature(message.text, include=True)
+        assert body == "This is a german email"
+
+    def test_sent_from_device_in_thread(self):
+        """
+        Tests that if the thread becomes malformed we will be able to parse out the correct part if a sent from device is present
+        """
+        message = self.get_email("sent_from_device_in_thread")
+        body = EmailReplyParser.cut_off_at_signature(message.text)
+
+        assert body == "Yes that would be fine"
+
 
     def test_sent_from_device_in_thread_languages(self):
         """
@@ -304,14 +306,6 @@ class EmailMessageTest(unittest.TestCase):
         message = self.get_email("email_with_quoted_text")
         body = EmailReplyParser.cut_off_at_signature(message.text)
         assert body.endswith("Tony")
-
-    def test_paul(self):
-        """
-        Tests that we're parsing the 'On Jan 31 X wrote:' correctly in Polish. We test 5 different types that appear
-        """
-        message = self.get_email('test_paul')
-        body = EmailReplyParser.cut_off_at_signature(message.text, include=True)
-        assert body == "Ten tekst powinien pojawić się w treści"
 
     def test_spanish_signoff(self):
         """
