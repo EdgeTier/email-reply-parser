@@ -215,7 +215,7 @@ class EmailMessage(object):
 
         self.found_visible = False
 
-        is_multi_quote_header = self.MULTI_QUOTE_HDR_REGEX.search(self.text)
+        is_multi_quote_header = self.MULTI_QUOTE_HDR_REGEX.search(self.text.strip())
         if is_multi_quote_header:
             self.text = self.text[:is_multi_quote_header.start()]
 
@@ -249,7 +249,7 @@ class EmailMessage(object):
         """ Reviews each line in email message and determines fragment type
             line - a row of text from an email message
         """
-        is_quote_header = self.QUOTE_HDR_REGEX.match(line) is not None
+        is_quote_header = self.QUOTE_HDR_REGEX.match(line.strip()) is not None
         is_quoted = self.QUOTED_REGEX.match(line) is not None
         is_header = is_quote_header or self.HEADER_REGEX.match(line) is not None
 
