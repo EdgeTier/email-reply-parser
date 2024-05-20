@@ -247,6 +247,10 @@ class EmailMessageTest(unittest.TestCase):
         body = EmailReplyParser.cut_off_at_signature(message.text, include=True)
         assert body == "This is the main body"
 
+        message = self.get_email('email_portuguese_2')
+        body = EmailReplyParser.cut_off_at_signature(message.text, include=True)
+        assert body == "Here is the actual email"
+
         message = self.get_email('email_romanian_1')
         body = EmailReplyParser.cut_off_at_signature(message.text, include=True)
         assert body == "This is the actual email"
