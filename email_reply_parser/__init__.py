@@ -111,7 +111,7 @@ class EmailMessage(object):
         r"|Op.*geschreven(.*?):$"  # Dutch
         r"|No dia.*escreveu(.*?):$"  # Portuguese
         r"|A.*escreveu(.*?):$"  # Portuguese
-        r"|[A-Z].*> escreveu(.*?):$"  # Portuguese
+        r"|[A-Z].*[>|;] escreveu(.*?):$"  # Portuguese
         r"|Le.*ecrit(.*?):$"  # French
         r"|El.*escribio(.*?):$"  # Spanish
         r"|El.*escribió(.*?):$"  # Spanish
