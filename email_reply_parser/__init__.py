@@ -217,7 +217,7 @@ class EmailMessage(object):
 
         is_multi_quote_header = self.MULTI_QUOTE_HDR_REGEX.search(self.text.strip())
         if is_multi_quote_header:
-            self.text = self.text[:is_multi_quote_header.start()]
+            self.text = self.text.strip()[:is_multi_quote_header.start()]
 
         # Fix any outlook style replies, with the reply immediately above the signature boundary line
         #   See email_2_2.txt for an example
