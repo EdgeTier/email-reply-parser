@@ -112,6 +112,7 @@ class EmailMessage(object):
         r"|No dia.*escreveu(.*?):$"  # Portuguese
         r"|A.*escreveu(.*?):$"  # Portuguese
         r"|[A-Z].*[>|;] escreveu(.*?):$"  # Portuguese
+        r"|[A-Z].*[0-9]{2}:[0-9]{2}.*@.*escreveu:$"  # Portuguese
         r"|Le.*ecrit(.*?):$"  # French
         r"|El.*escribio(.*?):$"  # Spanish
         r"|El.*escribió(.*?):$"  # Spanish
