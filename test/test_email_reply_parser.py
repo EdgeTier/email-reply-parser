@@ -31,13 +31,13 @@ class EmailMessageTest(unittest.TestCase):
             [False, True],
             [f.hidden for f in message.fragments]
         )
-        self.assertTrue("folks" in message.fragments[0].content)
-        self.assertTrue("riak-users" in message.fragments[1].content)
+        self.assertIn("folks", message.fragments[0].content)
+        self.assertIn("riak-users", message.fragments[1].content)
 
     def test_multiline_reply_headers(self):
         message = get_email('email_1_6')
-        self.assertTrue('I get' in message.fragments[0].content)
-        self.assertTrue('Sent' in message.fragments[1].content)
+        self.assertIn('I get', message.fragments[0].content)
+        self.assertIn('Sent', message.fragments[1].content)
 
     def test_complex_body_with_one_fragment(self):
         message = get_email('email_1_5')
@@ -63,11 +63,11 @@ class EmailMessageTest(unittest.TestCase):
             [f.hidden for f in message.fragments]
         )
 
-        self.assertTrue('--' in message.fragments[1].content)
+        self.assertIn('--', message.fragments[1].content)
 
     def test_deals_with_windows_line_endings(self):
         msg = get_email('email_1_7')
-        self.assertTrue(':+1:' in msg.fragments[0].content)
+        self.assertIn(':+1:', msg.fragments[0].content)
 
     def test_reply_from_gmail(self):
         message = get_email_text('email_gmail')
@@ -90,19 +90,19 @@ class EmailMessageTest(unittest.TestCase):
 
     def test_sent_from_iphone(self):
         message = get_email_text('email_iPhone')
-        self.assertTrue("Sent from my iPhone" not in EmailReplyParser.parse_reply(message))
+        self.assertNotIn("Sent from my iPhone", EmailReplyParser.parse_reply(message))
 
     def test_email_one_is_not_on(self):
         message = get_email_text('email_one_is_not_on')
-        self.assertTrue(
-            "On Oct 1, 2012, at 11:55 PM, Dave Tapley wrote:" not in EmailReplyParser.parse_reply(message)
+        self.assertNotIn(
+            "On Oct 1, 2012, at 11:55 PM, Dave Tapley wrote:", EmailReplyParser.parse_reply(message)
         )
 
     def test_partial_quote_header(self):
         message = get_email('email_partial_quote_header')
-        self.assertTrue("On your remote host you can run:" in message.reply)
-        self.assertTrue("telnet 127.0.0.1 52698" in message.reply)
-        self.assertTrue("This should connect to TextMate" in message.reply)
+        self.assertIn("On your remote host you can run:", message.reply)
+        self.assertIn("telnet 127.0.0.1 52698", message.reply)
+        self.assertIn("This should connect to TextMate", message.reply)
 
     def test_email_headers_no_delimiter(self):
         message = get_email('email_headers_no_delimiter')
@@ -168,7 +168,7 @@ class EmailMessageTest(unittest.TestCase):
         message = get_email("sent_from_device_in_thread")
         body = EmailReplyParser.cut_off_at_signature(message.text)
 
-        self.assertTrue(body == "Yes that would be fine")
+        self.assertEqual(body, "Yes that would be fine")
 
     # -------------------- LANGUAGES -------------------- #
 
@@ -221,7 +221,7 @@ class EmailMessageTest(unittest.TestCase):
         # Test Portuguese regex
         message = get_email('email_french_accent_sent_on')
         body = EmailReplyParser.cut_off_at_signature(message.text, include=False, word_limit=100)
-        self.assertTrue(body == "Bonjour, ca va bien!")
+        self.assertEqual(body, "Bonjour, ca va bien!")
 
     def test_remove_SIG_REGEX_end(self):
         # Test that any "Sent from iPhone" messages are removed at the end of an email
@@ -256,19 +256,19 @@ class EmailMessageTest(unittest.TestCase):
         """
         message = get_email('email_polish_1')
         body = EmailReplyParser.cut_off_at_signature(message.text, include=True)
-        self.assertTrue(body == "Ten tekst powinien pojawić się w treści")
+        self.assertEqual(body, "Ten tekst powinien pojawić się w treści")
 
         message = get_email('email_polish_2')
         body = EmailReplyParser.cut_off_at_signature(message.text, include=True)
-        self.assertTrue(body == "Ten tekst powinien pojawić się w treści")
+        self.assertEqual(body, "Ten tekst powinien pojawić się w treści")
 
         message = get_email('email_polish_3')
         body = EmailReplyParser.cut_off_at_signature(message.text, include=True)
-        self.assertTrue(body == "Ten tekst powinien pojawić się w treści")
+        self.assertEqual(body, "Ten tekst powinien pojawić się w treści")
 
         message = get_email('email_polish_4')
         body = EmailReplyParser.cut_off_at_signature(message.text, include=True)
-        self.assertTrue(body == "Ten tekst powinien pojawić się w treści")
+        self.assertEqual(body, "Ten tekst powinien pojawić się w treści")
 
         message = get_email('email_greek_1')
         body = EmailReplyParser.cut_off_at_signature(message.text, include=True)
@@ -280,15 +280,15 @@ class EmailMessageTest(unittest.TestCase):
 
         message = get_email('email_with_two_headers')
         body = EmailReplyParser.cut_off_at_signature(message.text, include=True)
-        self.assertTrue(body == "This is the main content")
+        self.assertEqual(body, "This is the main content")
 
         message = get_email('email_portuguese_1')
         body = EmailReplyParser.cut_off_at_signature(message.text, include=True)
-        self.assertTrue(body == "This is the main body")
+        self.assertEqual(body, "This is the main body")
 
         message = get_email('email_portuguese_2')
         body = EmailReplyParser.cut_off_at_signature(message.text, include=True)
-        self.assertTrue(body == "Here is the actual email")
+        self.assertEqual(body, "Here is the actual email")
 
         message = get_email('email_portuguese_3')
         body = EmailReplyParser.cut_off_at_signature(message.text, include=True)
@@ -297,11 +297,11 @@ class EmailMessageTest(unittest.TestCase):
 
         message = get_email('email_romanian_1')
         body = EmailReplyParser.cut_off_at_signature(message.text, include=True)
-        self.assertTrue(body == "This is the actual email")
+        self.assertEqual(body, "This is the actual email")
 
         message = get_email('email_german_2')
         body = EmailReplyParser.cut_off_at_signature(message.text, include=True)
-        self.assertTrue(body == "This is a german email")
+        self.assertEqual(body, "This is a german email")
 
 
     def test_sent_from_device_in_thread_languages(self):
@@ -318,10 +318,10 @@ class EmailMessageTest(unittest.TestCase):
         body_dutch = EmailReplyParser.cut_off_at_signature(message_dutch.text)
         body_romanian = EmailReplyParser.cut_off_at_signature(message_romanian.text)
 
-        self.assertTrue(body_english == "Yes that would be fine")
-        self.assertTrue(body_hungarian == "Yes that would be fine")
-        self.assertTrue(body_dutch == "Yes that would be fine")
-        self.assertTrue(body_romanian == "Yes that would be fine")
+        self.assertEqual(body_english, "Yes that would be fine")
+        self.assertEqual(body_hungarian, "Yes that would be fine")
+        self.assertEqual(body_dutch, "Yes that would be fine")
+        self.assertEqual(body_romanian, "Yes that would be fine")
 
     def test_remove_non_alphabetic_signature_patter(self):
         """
