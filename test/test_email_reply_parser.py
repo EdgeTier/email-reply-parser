@@ -2,6 +2,7 @@ import os
 import sys
 import unittest
 import time
+from pathlib import Path
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 from email_reply_parser import EmailReplyParser
@@ -9,8 +10,7 @@ from email_reply_parser import EmailReplyParser
 
 def get_email(name):
     """Return EmailMessage instance, utility function"""
-    with open('emails/%s.txt' % name) as f:
-        text = f.read()
+    text = Path(f'emails/{name}.txt').read_text()
     return EmailReplyParser.read(text)
 
 
