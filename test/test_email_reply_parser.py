@@ -2,9 +2,9 @@ import os
 import sys
 import unittest
 import time
-from email_reply_parser import EmailReplyParser
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
+from email_reply_parser import EmailReplyParser
 
 
 class EmailMessageTest(unittest.TestCase):
@@ -306,9 +306,9 @@ class EmailMessageTest(unittest.TestCase):
         body = EmailReplyParser.cut_off_at_signature(message_dash_signoff.text)
         assert body.endswith("Perrin Aybara")
 
-        message_bullets = self.get_email("email_with_bullets")
+        message_bullets = self.get_email("email_bullets")
         body = EmailReplyParser.cut_off_at_signature(message_bullets.text)
-        assert body.endswith("Jane")
+        assert body.endswith("another")
 
     def test_remove_quoted_text(self):
         """Tests that we cut off an email correctly once we see quoted text '>'"""
