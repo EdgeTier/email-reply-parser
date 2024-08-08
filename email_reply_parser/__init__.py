@@ -205,6 +205,7 @@ class EmailMessage(object):
         r"((thank you|thanks!?|thank you in advance|thanks in advance|merci|danke|"
         r"grazie|grazie mille|multumesc\s?|multumesc anticipat|multumesc frumos|gracias|muchos gracias)(,?!?\n))|"
         r"(Pozdrawiam.?|Z powazaniem|z pozdrowieniami)",
+        # No Email signature for arabic because they are uncommon and not standard practise
         flags=re.IGNORECASE
     )
 

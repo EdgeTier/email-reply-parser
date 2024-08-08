@@ -132,6 +132,7 @@ class EmailMessageTest(unittest.TestCase):
         message_english = self.get_email('email_signature')
         message_german = self.get_email('email_german')
         message_french = self.get_email('email_french')
+        # No Email signature for arabic because they are uncommon and not standard practise
 
         body_english = EmailReplyParser.cut_off_at_signature(message_english.text, include=False, word_limit=100)
         body_german = EmailReplyParser.cut_off_at_signature(message_german.text, include=False, word_limit=100)
