@@ -25,7 +25,6 @@ class EmailMessageTest(unittest.TestCase):
 
     def test_multiline_reply_headers(self):
         message = self.get_email('email_1_6')
-        print(message)
         self.assertTrue('I get' in message.fragments[0].content)
         self.assertTrue('Sent' in message.fragments[1].content)
 
