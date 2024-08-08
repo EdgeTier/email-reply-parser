@@ -45,7 +45,8 @@ class EmailMessage(object):
 
     QUOTE_HDR_REGEX = re.compile(
         r"On.*wrote(.*?):$"  # English
-        r"|Il.*ha(.*?)$"  # Italian - in italian the phrase is "ha scritto" but sometimes "scritto" is put on a new line so we won't put the colon at the end
+        r"|Il.*ha(.*?)$"  # Italian - in italian the phrase is "ha scritto" but sometimes "scritto" is put on a new line 
+                                    # so we won't put the colon at the end
         r"|mån.*skrev(.*?):$"  # Swedish
         r"|man.*skrev(.*?):$"  # Swedish
         r"|tis.*skrev(.*?):$"  # Norwegian
@@ -98,6 +99,10 @@ class EmailMessage(object):
         r"|De|Enviado|A|Asunto"  # Spanish
         r"|De|Enviado|Para|Assunto|Data):\*?"  # Portuguese
     )
+
+    # Catch Multi-line Headers. Eg:
+    # On 8th August 2024
+    # email@domain.com wrote:
     _MULTI_QUOTE_HDR_REGEX = (
         r"(On (.{,120})\n?(.{,50})?wrote(\s+)?:"  # English
         r"|Il (.{,120})\n?(.{,50})?ha(\s+)?:"  # Italian
@@ -135,6 +140,7 @@ class EmailMessage(object):
         r"|Στις (.{,120})\n?(.{,50})?έγραψε(\s+)?:"  # Greek
         r")"
     )
+
     MULTI_QUOTE_HDR_REGEX = re.compile(_MULTI_QUOTE_HDR_REGEX)
 
     EMAIL_SIGNOFF_REGEX = re.compile(
@@ -152,7 +158,8 @@ class EmailMessage(object):
     )
 
     EMAIL_HEADER_WARNINGS = [
-        "CAUTION:This message is from an EXTERNAL SENDER - be CAUTIOUS, Do NOT Click any links or Open any attachments if you were not expecting them."
+        "CAUTION:This message is from an EXTERNAL SENDER - be CAUTIOUS, " # Continued ...
+        "Do NOT Click any links or Open any attachments if you were not expecting them."
     ]
 
     def __init__(self, text):

@@ -11,9 +11,8 @@ class EmailReplyParser(object):
     def read(text):
         """ Factory method that splits email into list of fragments
 
-            text - A string email body
-
-            Returns an EmailMessage instance
+            :param text: A string email body
+            :returns: EmailMessage instance
         """
         return EmailMessage(text).read()
 
@@ -21,9 +20,8 @@ class EmailReplyParser(object):
     def parse_reply(text):
         """ Provides the reply portion of email.
 
-            text - A string email body
-
-            Returns reply body message
+            :param text: A string email body
+            :returns: Reply body message
         """
         return EmailReplyParser.read(text).reply
 
@@ -33,9 +31,9 @@ class EmailReplyParser(object):
         Remove the signature section from an email, and use the email Reply Parser to try to remove any
         "thread" content.
         Languages supported: English, French, German, Romanian, Spanish, Italian.
+
         :param body: The email string to be parsed and cleaned.
-        :param include_signature: Boolean variable that determines whether an email is cut-off before the signature or
-        after. Default True.
+        :param include_signature: Include signature at the end or cut it off. Defaults to True.
         :param word_limit: If we set the word-limit to None the string will not be split and line breaks will
         be retained. If a word-limit is set, the email will be cut-off after that limit if a signature is not
         found before that point. Default = 100.
