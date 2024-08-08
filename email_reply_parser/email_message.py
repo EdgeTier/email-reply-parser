@@ -194,10 +194,7 @@ class EmailMessage(object):
     def reply(self):
         """ Captures reply message within email
         """
-        reply = []
-        for f in self.fragments:
-            if not (f.hidden or f.quoted):
-                reply.append(f.content)
+        reply = [f.content for f in self.fragments if not (f.hidden or f.quoted)]
         return '\n'.join(reply)
 
     def _scan_line(self, line):
@@ -256,7 +253,7 @@ class EmailMessage(object):
         self.fragment = None
 
     @staticmethod
-    def clean_email_content(body, include: Optional[bool], word_limit: Optional[int]):
+    def clean_email_content(body, include_signature: Optional[bool], word_limit: Optional[int]):
         """
         Determines if a signature can be found and if so, whether to end the email before or after the signature.
         """
@@ -280,7 +277,7 @@ class EmailMessage(object):
                 match for match in sent_from_device_matches if match.start() > end_of_first_line_index
             ]
 
-        if include is True:
+        if include_signature is True:
             # Keep the sign-off
             body = EmailMessage.keep_signoff(body, signoff_matches, sent_from_device_matches, word_limit)
 
