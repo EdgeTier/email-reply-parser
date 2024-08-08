@@ -13,6 +13,10 @@ def get_email(name):
     text = Path(f'emails/{name}.txt').read_text()
     return EmailReplyParser.read(text)
 
+def get_email_text(name):
+    """Return file text only"""
+    return Path(f'emails/{name}.txt').read_text()
+
 
 class EmailMessageTest(unittest.TestCase):
     def test_simple_body(self):
@@ -66,32 +70,33 @@ class EmailMessageTest(unittest.TestCase):
         self.assertTrue(':+1:' in msg.fragments[0].content)
 
     def test_reply_from_gmail(self):
-        with open('emails/email_gmail.txt') as f:
-            self.assertEqual('This is a test for inbox replying to a github message.',
-                             EmailReplyParser.parse_reply(f.read()))
+        message = get_email_text('email_gmail')
+        EmailReplyParser.parse_reply(message)
 
     def test_parse_out_just_top_for_outlook_reply(self):
-        with open('emails/email_2_1.txt') as f:
-            self.assertEqual("Outlook with a reply", EmailReplyParser.parse_reply(f.read()))
+        message = get_email_text('email_2_1')
+        self.assertEqual("Outlook with a reply", EmailReplyParser.parse_reply(message))
 
     def test_parse_out_just_top_for_outlook_with_reply_directly_above_line(self):
-        with open('emails/email_2_2.txt') as f:
-            self.assertEqual("Outlook with a reply directly above line", EmailReplyParser.parse_reply(f.read()))
+        message = get_email_text('email_2_2')
+        self.assertEqual("Outlook with a reply directly above line", EmailReplyParser.parse_reply(message))
 
     def test_parse_out_just_top_for_outlook_with_unusual_headers_format(self):
-        with open('emails/email_2_3.txt') as f:
-            self.assertEqual(
-                "Outlook with a reply above headers using unusual format",
-                EmailReplyParser.parse_reply(f.read()))
+        message = get_email_text('email_2_3')
+        self.assertEqual(
+            "Outlook with a reply above headers using unusual format",
+            EmailReplyParser.parse_reply(message)
+        )
 
     def test_sent_from_iphone(self):
-        with open('emails/email_iPhone.txt') as email:
-            self.assertTrue("Sent from my iPhone" not in EmailReplyParser.parse_reply(email.read()))
+        message = get_email_text('email_iPhone')
+        self.assertTrue("Sent from my iPhone" not in EmailReplyParser.parse_reply(message))
 
     def test_email_one_is_not_on(self):
-        with open('emails/email_one_is_not_on.txt') as email:
-            self.assertTrue(
-                "On Oct 1, 2012, at 11:55 PM, Dave Tapley wrote:" not in EmailReplyParser.parse_reply(email.read()))
+        message = get_email_text('email_one_is_not_on')
+        self.assertTrue(
+            "On Oct 1, 2012, at 11:55 PM, Dave Tapley wrote:" not in EmailReplyParser.parse_reply(message)
+        )
 
     def test_partial_quote_header(self):
         message = get_email('email_partial_quote_header')
@@ -105,7 +110,7 @@ class EmailMessageTest(unittest.TestCase):
 
     def test_pathological_emails(self):
         t0 = time.time()
-        message = get_email("pathological")
+        get_email("pathological")
         self.assertTrue(time.time() - t0 < 1, "Took too long")
 
     def test_doesnt_remove_signature_delimiter_in_mid_line(self):
