@@ -60,6 +60,7 @@ class EmailMessage(object):
         r"|(^Sent from .{,50}$)"  # English
         r"|(^Sent using the mobile mail app)"  # English
         r"|(^Get Outlook for .{,50}$)"  # English
+        r"|(^Sent from .{,50}$)"  # English
         r"|(^Sendt fra .{,50}$)"  # Danish
         r"|(^Verstuurd vanaf.{,50}$)"  # Dutch
         r"|(^Verzonden vanuit .{,50}$)"  # Dutch
@@ -85,7 +86,10 @@ class EmailMessage(object):
         r"|(^Trimis de pe .{,50}$)"  # Romanian
         r"|(^Skickat från .{,50}$)"  # Swedish
         r"|(^Skickat fran .{,50}$)"  # Swedish
-        r"|(^Στάλθηκε από .{,50}$)",  # Greek
+        r"|(^Στάλθηκε από .{,50}$)"  # Greek
+        r"|(احصل على .{,50}$)"  # Arabic
+        r"|(\u202B?أُرسلت من الـ .{,50}$)"  # Arabic
+        r"|(\u200F?\u202B?من الـ iPhone .{,50}$)", # Arabic
         flags=re.MULTILINE
     )
 
@@ -125,6 +129,9 @@ class EmailMessage(object):
         r"|Στις.*έγραψε(.*?):$"  # Greek
         r"|.*[0-9]{2}:[0-9]{2}.*a scris(.*?):$"  # Romanian
         r"|Dne.*napsal(.*?):$"  # Czech
+        r"|\u202B?في.*كتب/كتبت(.*?):"  # Arabic
+        r"|\u202B?في.*(كتب|كتبت)(.*?):$"  # Arabic
+        r"|\u202B?بتاريخ.*(كتب|كتبت)(.*?):$"  # Arabic
     )
 
     QUOTED_REGEX = re.compile(r"(>+)")
@@ -142,6 +149,7 @@ class EmailMessage(object):
         r"|Από το|Αποστολή|Προς|Θέμα"  # Greek
         r"|De la|Început|La|Subiect"  # Romanian
         r"|De|Enviado|A|Asunto"  # Spanish
+        r"|من|تم الإرسال|إلى|الموضوع"  # Arabic
         r"|De|Enviado|Para|Assunto|Data):\*?"  # Portuguese
     )
     _MULTI_QUOTE_HDR_REGEX = (
@@ -179,6 +187,9 @@ class EmailMessage(object):
         r"|Wiadomosc napisana (.{,120})\n?(.{,50})?o godz" # Polish
         r"|Temat: (.{,120})\n?(.{,50})?Adresat:" # Polish
         r"|Στις (.{,120})\n?(.{,50})?έγραψε(\s+)?:"  # Greek
+        r"|\u202B?في (.{,120})\n?(.{,50})?كتب/كتبت(\s+)?:" # Arabic
+        r"|\u202B?في (.{,120})\n?(.{,50})?(كتب|كتبت)(\s+)?:" # Arabic
+        r"|\u202B?بتاريخ (.{,120})\n?(.{,50})?(كتب|كتبت)(\s+)?:" # Arabic
         r")"
     )
     MULTI_QUOTE_HDR_REGEX = re.compile(_MULTI_QUOTE_HDR_REGEX)
