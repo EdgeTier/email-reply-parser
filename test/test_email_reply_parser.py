@@ -117,6 +117,61 @@ class EmailMessageTest(unittest.TestCase):
         message = get_email('email_sig_delimiter_in_middle_of_line')
         self.assertEqual(1, len(message.fragments))
 
+    def test_clean_email_content_no_change(self):
+        # Ensure that a short email with no reply and no signature doesn't change
+        message = get_email('email_one_line')
+        clean_content = EmailReplyParser.cut_off_at_signature(body=message.text, word_limit=1000)
+        self.assertEqual(message.text, clean_content)
+
+    def test_end_of_email(self):
+        # Check that an email that continues after the sign-off (without being a header or reply) cuts off at signature
+        message = get_email('email_continue_after_signoff')
+        body = EmailReplyParser.cut_off_at_signature(message.text)
+        self.assertTrue(body.endswith('Tom Bombadil'))
+
+    def test_keep_newlines_when_no_signoff(self):
+        # Test that when there is no sign-off message detected at the end, the newlines/spacing are not changed
+        message = get_email('email_no_signature')
+        body = EmailReplyParser.cut_off_at_signature(message.text)
+        self.assertTrue(body.endswith("Let's see if it works.\n\nK"))
+
+    def test_remove_header_warnings(self):
+        """
+        Tests that we remove any warnings about external emails at the top of emails
+        """
+        message = get_email('email_with_header_warning')
+        body = EmailReplyParser.cut_off_at_signature(message.text, include=True)
+        self.assertTrue(body.startswith('Hi,'))
+        self.assertTrue(body.endswith('Thanks'))
+
+
+    def test_dont_cut_signature_at_start_of_email(self):
+        """
+        Some e-emails will start with things like "Dear Mr. Best,\n\nHow are you?" these can get parsed out at the end
+        of an email unless handled correctly. This test just makes sure that we handle those correctly.
+        """
+        first_message = get_email("george_best")
+        second_message = get_email("dutch_beste_example")
+
+        body_first_message = EmailReplyParser.cut_off_at_signature(first_message.text)
+        body_second_message = EmailReplyParser.cut_off_at_signature(second_message.text)
+
+        self.assertTrue(body_first_message.startswith("Dear George Best,"))
+        self.assertTrue(body_first_message.endswith("Phil"))
+        self.assertTrue(body_second_message.startswith("Beste,"))
+        self.assertTrue(body_second_message.endswith("Timmy"))
+
+    def test_sent_from_device_in_thread(self):
+        """
+        Tests that if the thread becomes malformed we will be able to parse out the correct part if a sent from device is present
+        """
+        message = get_email("sent_from_device_in_thread")
+        body = EmailReplyParser.cut_off_at_signature(message.text)
+
+        self.assertTrue(body == "Yes that would be fine")
+
+    # -------------------- LANGUAGES -------------------- #
+
     def test_include_signature_true(self):
         # Test that the cut_off_at_signature function ends an email after the sign-off when include = True
         message_english = get_email('email_signature')
@@ -167,24 +222,6 @@ class EmailMessageTest(unittest.TestCase):
         message = get_email('email_french_accent_sent_on')
         body = EmailReplyParser.cut_off_at_signature(message.text, include=False, word_limit=100)
         self.assertTrue(body == "Bonjour, ca va bien!")
-
-    def test_clean_email_content_no_change(self):
-        # Ensure that a short email with no reply and no signature doesn't change
-        message = get_email('email_one_line')
-        clean_content = EmailReplyParser.cut_off_at_signature(body=message.text, word_limit=1000)
-        self.assertEqual(message.text, clean_content)
-
-    def test_end_of_email(self):
-        # Check that an email that continues after the sign-off (without being a header or reply) cuts off at signature
-        message = get_email('email_continue_after_signoff')
-        body = EmailReplyParser.cut_off_at_signature(message.text)
-        self.assertTrue(body.endswith('Tom Bombadil'))
-
-    def test_keep_newlines_when_no_signoff(self):
-        # Test that when there is no sign-off message detected at the end, the newlines/spacing are not changed
-        message = get_email('email_no_signature')
-        body = EmailReplyParser.cut_off_at_signature(message.text)
-        self.assertTrue(body.endswith("Let's see if it works.\n\nK"))
 
     def test_remove_SIG_REGEX_end(self):
         # Test that any "Sent from iPhone" messages are removed at the end of an email
@@ -266,15 +303,6 @@ class EmailMessageTest(unittest.TestCase):
         body = EmailReplyParser.cut_off_at_signature(message.text, include=True)
         self.assertTrue(body == "This is a german email")
 
-    def test_sent_from_device_in_thread(self):
-        """
-        Tests that if the thread becomes malformed we will be able to parse out the correct part if a sent from device is present
-        """
-        message = get_email("sent_from_device_in_thread")
-        body = EmailReplyParser.cut_off_at_signature(message.text)
-
-        self.assertTrue(body == "Yes that would be fine")
-
 
     def test_sent_from_device_in_thread_languages(self):
         """
@@ -326,31 +354,6 @@ class EmailMessageTest(unittest.TestCase):
         body = EmailReplyParser.cut_off_at_signature(message.text, include=True)
         self.assertTrue(body.endswith('Salud'))
 
-    def test_remove_header_warnings(self):
-        """
-        Tests that we remove any warnings about external emails at the top of emails
-        """
-        message = get_email('email_with_header_warning')
-        body = EmailReplyParser.cut_off_at_signature(message.text, include=True)
-        self.assertTrue(body.startswith('Hi,'))
-        self.assertTrue(body.endswith('Thanks'))
-
-
-    def test_dont_cut_signature_at_start_of_email(self):
-        """
-        Some e-emails will start with things like "Dear Mr. Best,\n\nHow are you?" these can get parsed out at the end
-        of an email unless handled correctly. This test just makes sure that we handle those correctly.
-        """
-        first_message = get_email("george_best")
-        second_message = get_email("dutch_beste_example")
-
-        body_first_message = EmailReplyParser.cut_off_at_signature(first_message.text)
-        body_second_message = EmailReplyParser.cut_off_at_signature(second_message.text)
-
-        self.assertTrue(body_first_message.startswith("Dear George Best,"))
-        self.assertTrue(body_first_message.endswith("Phil"))
-        self.assertTrue(body_second_message.startswith("Beste,"))
-        self.assertTrue(body_second_message.endswith("Timmy"))
 
 if __name__ == '__main__':
     unittest.main()
