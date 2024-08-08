@@ -60,7 +60,6 @@ class EmailMessage(object):
         r"|(^Sent from .{,50}$)"  # English
         r"|(^Sent using the mobile mail app)"  # English
         r"|(^Get Outlook for .{,50}$)"  # English
-        r"|(^Sent from .{,50}$)"  # English
         r"|(^Sendt fra .{,50}$)"  # Danish
         r"|(^Verstuurd vanaf.{,50}$)"  # Dutch
         r"|(^Verzonden vanuit .{,50}$)"  # Dutch
