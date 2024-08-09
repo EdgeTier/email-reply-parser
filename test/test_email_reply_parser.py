@@ -170,36 +170,6 @@ class EmailMessageTest(unittest.TestCase):
 
         self.assertEqual(body, "Yes that would be fine")
 
-    # -------------------- LANGUAGES -------------------- #
-
-    def test_include_signature_true(self):
-        # Test that the cut_off_at_signature function ends an email after the sign-off when include = True
-        message_english = get_email('email_signature')
-        message_german = get_email('email_german')
-        message_french = get_email('email_french')
-
-        body_english = EmailReplyParser.cut_off_at_signature(message_english.text, include=True, word_limit=100)
-        body_german = EmailReplyParser.cut_off_at_signature(message_german.text, include=True, word_limit=100)
-        body_french = EmailReplyParser.cut_off_at_signature(message_french.text, include=True, word_limit=100)
-
-        self.assertTrue(body_english.endswith('Kind regards,\n\nPerrin Aybara'))
-        self.assertTrue(body_german.endswith('Mit freundlichen Grüßen,\n\nLukas'))
-        self.assertTrue(body_french.endswith('Bien à vous,\n\nNicolette Baudelaire'))
-
-    def test_include_signature_false(self):
-        # Test that the cut_off_at_signature function ends an email before the sign-off when include = False
-        message_english = get_email('email_signature')
-        message_german = get_email('email_german')
-        message_french = get_email('email_french')
-
-        body_english = EmailReplyParser.cut_off_at_signature(message_english.text, include=False, word_limit=100)
-        body_german = EmailReplyParser.cut_off_at_signature(message_german.text, include=False, word_limit=100)
-        body_french = EmailReplyParser.cut_off_at_signature(message_french.text, include=False, word_limit=100)
-
-        self.assertTrue(body_english.endswith('email cut-off point.'))
-        self.assertTrue(body_german.endswith('November vornehmen.'))
-        self.assertTrue(body_french.endswith("s'il vous plaît?"))
-
     def test_word_limit(self):
         # Test that a long email cuts off after the default or given word limit
         message = get_email('long_passage')
@@ -211,123 +181,10 @@ class EmailMessageTest(unittest.TestCase):
         self.assertTrue(body_short.endswith('TEN!'))
         self.assertTrue(body_long.endswith('FIVE HUNDRED IS HERE!'))
 
-    def test_clean_email_portuguese(self):
-        # Test Portuguese regex
-        message = get_email('email_portuguese')
-        body = EmailReplyParser.cut_off_at_signature(message.text, include=False, word_limit=100)
-        self.assertTrue(body.endswith("Cumprimentos\nPedro Mota"))
-
-    def test_clean_email_french(self):
-        # Test Portuguese regex
-        message = get_email('email_french_accent_sent_on')
-        body = EmailReplyParser.cut_off_at_signature(message.text, include=False, word_limit=100)
-        self.assertEqual(body, "Bonjour, ca va bien!")
-
-    def test_remove_SIG_REGEX_end(self):
-        # Test that any "Sent from iPhone" messages are removed at the end of an email
-        message_french = get_email('email_iphone_french')
-        message_portuguese = get_email('email_iphone_portuguese')
-        message_polish = get_email('email_iphone_polish')
-        message_finnish = get_email('email_iphone_finnish')
-
-        body_french = EmailReplyParser.cut_off_at_signature(message_french.text)
-        body_portuguese = EmailReplyParser.cut_off_at_signature(message_portuguese.text)
-        body_polish = EmailReplyParser.cut_off_at_signature(message_polish.text)
-        body_finnish = EmailReplyParser.cut_off_at_signature(message_finnish.text)
-
-        self.assertTrue(body_french.endswith("Au revoir,\n\nKelsier"))
-        self.assertTrue(body_portuguese.endswith("Adeus,\n\nOtis"))
-        self.assertTrue(body_polish.endswith("Do widzenia,\n\nTriss"))
-        self.assertTrue(body_finnish.endswith("Hyvästi,\n\nTorin"))
-
-    def test_remove_SIG_REGEX_start(self):
-        # Test that any "Sent from iPhone" messages are removed at the beginning of an email
-        message_english = get_email('email_iphone_start')
-        message_german = get_email('email_iphone_start_german')
-        body_english = EmailReplyParser.cut_off_at_signature(message_english.text)
-        body_german = EmailReplyParser.cut_off_at_signature(message_german.text)
-        self.assertTrue(body_english.startswith('Hi,\n\nCase where the'))
-        self.assertTrue(body_german.startswith('Hallo,\n\nFall, in dem das'))
-
-
-    def test_parse_response_headers(self):
-        """
-        Tests that we are parsing out email response headers correctly for multiple languages
-        """
-        message = get_email('email_polish_1')
-        body = EmailReplyParser.cut_off_at_signature(message.text, include=True)
-        self.assertEqual(body, "Ten tekst powinien pojawić się w treści")
-
-        message = get_email('email_polish_2')
-        body = EmailReplyParser.cut_off_at_signature(message.text, include=True)
-        self.assertEqual(body, "Ten tekst powinien pojawić się w treści")
-
-        message = get_email('email_polish_3')
-        body = EmailReplyParser.cut_off_at_signature(message.text, include=True)
-        self.assertEqual(body, "Ten tekst powinien pojawić się w treści")
-
-        message = get_email('email_polish_4')
-        body = EmailReplyParser.cut_off_at_signature(message.text, include=True)
-        self.assertEqual(body, "Ten tekst powinien pojawić się w treści")
-
-        message = get_email('email_greek_1')
-        body = EmailReplyParser.cut_off_at_signature(message.text, include=True)
-        self.assertTrue(body.endswith("Από τον Άδη"))
-
-        message = get_email('email_malformed_thread_header')
-        body = EmailReplyParser.cut_off_at_signature(message.text, include=True)
-        self.assertTrue(body.endswith("que cet e-mail est analysé correctement"))
-
-        message = get_email('email_with_two_headers')
-        body = EmailReplyParser.cut_off_at_signature(message.text, include=True)
-        self.assertEqual(body, "This is the main content")
-
-        message = get_email('email_portuguese_1')
-        body = EmailReplyParser.cut_off_at_signature(message.text, include=True)
-        self.assertEqual(body, "This is the main body")
-
-        message = get_email('email_portuguese_2')
-        body = EmailReplyParser.cut_off_at_signature(message.text, include=True)
-        self.assertEqual(body, "Here is the actual email")
-
-        message = get_email('email_portuguese_3')
-        body = EmailReplyParser.cut_off_at_signature(message.text, include=True)
-        self.assertTrue(body.startswith("This is a test"))
-        self.assertTrue(body.endswith("This should be included"))
-
-        message = get_email('email_romanian_1')
-        body = EmailReplyParser.cut_off_at_signature(message.text, include=True)
-        self.assertEqual(body, "This is the actual email")
-
-        message = get_email('email_german_2')
-        body = EmailReplyParser.cut_off_at_signature(message.text, include=True)
-        self.assertEqual(body, "This is a german email")
-
-
-    def test_sent_from_device_in_thread_languages(self):
-        """
-        Tests that if the thread becomes malformed we will be able to parse out the correct part if a sent from device is present
-        """
-        message_english = get_email("sent_from_device_in_thread_english")
-        message_hungarian = get_email("sent_from_device_in_thread_hungarian")
-        message_dutch = get_email("sent_from_device_in_thread_dutch")
-        message_romanian = get_email("sent_from_device_in_thread_romanian")
-
-        body_english = EmailReplyParser.cut_off_at_signature(message_english.text)
-        body_hungarian = EmailReplyParser.cut_off_at_signature(message_hungarian.text)
-        body_dutch = EmailReplyParser.cut_off_at_signature(message_dutch.text)
-        body_romanian = EmailReplyParser.cut_off_at_signature(message_romanian.text)
-
-        self.assertEqual(body_english, "Yes that would be fine")
-        self.assertEqual(body_hungarian, "Yes that would be fine")
-        self.assertEqual(body_dutch, "Yes that would be fine")
-        self.assertEqual(body_romanian, "Yes that would be fine")
-
     def test_remove_non_alphabetic_signature_patter(self):
         """
         Tests that we we pick up things like --- and  * * * as signatures and ignore bullets
         """
-
         message_stars_signoff = get_email("email_with_stars_signoff")
         body = EmailReplyParser.cut_off_at_signature(message_stars_signoff.text)
         self.assertTrue(body.endswith("Jim"))
@@ -346,6 +203,114 @@ class EmailMessageTest(unittest.TestCase):
         body = EmailReplyParser.cut_off_at_signature(message.text)
         self.assertTrue(body.endswith("Tony"))
 
+    # -------------------- LANGUAGES -------------------- #
+
+    def test_include_signature_true(self):
+        # Test that the cut_off_at_signature function ends an email after the sign-off when include = True
+        correct_ending = {
+            # File_name: Correct Ending
+            'email_signature': 'Kind regards,\n\nPerrin Aybara',
+            'email_german': 'Mit freundlichen Grüßen,\n\nLukas',
+            'email_french': 'Bien à vous,\n\nNicolette Baudelaire',
+        }
+
+        for language, phrase in correct_ending.items():
+            message = get_email(language)
+            body = EmailReplyParser.cut_off_at_signature(message.text, include=True, word_limit=100)
+            self.assertTrue(body.endswith(phrase))
+
+    def test_include_signature_false(self):
+        # Test that the cut_off_at_signature function ends an email before the sign-off when include = False
+        correct_ending = {
+            # File_name: Correct Ending
+            'email_signature': 'email cut-off point.',
+            'email_german': 'November vornehmen.',
+            'email_french': 's\'il vous plaît?',
+        }
+
+        for language, phrase in correct_ending.items():
+            message = get_email(language)
+            body = EmailReplyParser.cut_off_at_signature(message.text, include=False, word_limit=100)
+            self.assertTrue(body.endswith(phrase))
+
+    def test_remove_SIG_REGEX_end(self):
+        # Test that any "Sent from iPhone" messages are removed at the end of an email
+        correct_ending = {
+            'email_iphone_french': 'Au revoir,\n\nKelsier',
+            'email_iphone_portuguese': 'Adeus,\n\nOtis',
+            'email_iphone_polish': 'Do widzenia,\n\nTriss',
+            'email_iphone_finnish': 'Hyvästi,\n\nTorin',
+        }
+
+        for language, phrase in correct_ending.items():
+            message = get_email(language)
+            body = EmailReplyParser.cut_off_at_signature(message.text, include=False, word_limit=100)
+            self.assertTrue(body.endswith(phrase))
+
+    def test_remove_SIG_REGEX_start(self):
+        # Test that any "Sent from iPhone" messages are removed at the beginning of an email
+        correct_start = {
+        'email_iphone_start': 'Hi,\n\nCase where the',
+        'email_iphone_start_german': 'Hallo,\n\nFall, in dem das',
+        }
+
+        for language, phrase in correct_start.items():
+            message = get_email(language)
+            body = EmailReplyParser.cut_off_at_signature(message.text, include=False, word_limit=100)
+            self.assertTrue(body.startswith(phrase))
+
+    def test_parse_response_headers_equal(self):
+        """
+        Parsing out email reponse headers for multiple languages. Checks for equality.
+        """
+        correct_phrase = {
+            'email_polish_1': 'Ten tekst powinien pojawić się w treści',
+            'email_polish_2': 'Ten tekst powinien pojawić się w treści',
+            'email_polish_3': 'Ten tekst powinien pojawić się w treści',
+            'email_polish_4': 'Ten tekst powinien pojawić się w treści',
+            'email_with_two_headers': 'This is the main content',
+            'email_portuguese_1': 'This is the main body',
+            'email_portuguese_2': 'Here is the actual email',
+            'email_romanian_1': 'This is the actual email',
+            'email_german_2': 'This is a german email',
+        }
+
+        for language, phrase in correct_phrase.items():
+            message = get_email(language)
+            body = EmailReplyParser.cut_off_at_signature(message.text, include=True)
+            self.assertEqual(body, phrase)
+
+    def test_parse_response_headers_endswith(self):
+        """
+        Parsing out email reponse headers for multiple languages. Checks for correct ending.
+        """
+        correct_ending = {
+            'email_malformed_thread_header': 'que cet e-mail est analysé correctement',
+            'email_greek_1': 'Από τον Άδη',
+            'email_portuguese_3': 'This should be included',
+        }
+
+        for language, phrase in correct_ending.items():
+            message = get_email(language)
+            body = EmailReplyParser.cut_off_at_signature(message.text, include=True)
+            self.assertTrue(body.endswith(phrase))
+
+    def test_sent_from_device_in_thread_languages(self):
+        """
+        Tests that if the thread becomes malformed we will be able to parse out the correct part if a sent from device is present
+        """
+        correct_phrase = {
+            'sent_from_device_in_thread_english': 'Yes that would be fine',
+            'sent_from_device_in_thread_hungarian': 'Yes that would be fine',
+            'sent_from_device_in_thread_dutch': 'Yes that would be fine',
+            'sent_from_device_in_thread_romanian': 'Yes that would be fine',
+        }
+
+        for language, phrase in correct_phrase.items():
+            message = get_email(language)
+            body = EmailReplyParser.cut_off_at_signature(message.text)
+            self.assertEqual(body, phrase)
+
     def test_spanish_signoff(self):
         """
         Tests that we're parsing the 'On Jan 31 X wrote:' correctly in Spanish.
@@ -353,6 +318,18 @@ class EmailMessageTest(unittest.TestCase):
         message = get_email('spanish_signoff')
         body = EmailReplyParser.cut_off_at_signature(message.text, include=True)
         self.assertTrue(body.endswith('Salud'))
+
+    def test_clean_email_portuguese(self):
+        # Test Portuguese regex
+        message = get_email('email_portuguese')
+        body = EmailReplyParser.cut_off_at_signature(message.text, include=False, word_limit=100)
+        self.assertTrue(body.endswith("Cumprimentos\nPedro Mota"))
+
+    def test_clean_email_french(self):
+        # Test French regex
+        message = get_email('email_french_accent_sent_on')
+        body = EmailReplyParser.cut_off_at_signature(message.text, include=False, word_limit=100)
+        self.assertEqual(body, "Bonjour, ca va bien!")
 
 
 if __name__ == '__main__':
