@@ -373,11 +373,21 @@ class EmailMessageTest(unittest.TestCase):
 
     def test_orginal_message_sign_off(self):
         """
-        Tests that we're parsing the ---- Original Message ---- correctly in german.
+        Tests that we're parsing the following correctly in german/french/english:
+         ---- Original Message ----
+        --------- Ursprungliche Nachricht ---------
+         ----Original-Nachricht----
+         ---------- Forwarded message ---------
         """
-        message = self.get_email('original_message_german')
-        body = EmailReplyParser.cut_off_at_signature(message.text, include=True)
-        assert body.endswith('Mit freundlichen Grüßen')
+        first_message = self.get_email('original_message_german')
+        second_message = self.get_email('original_message_german_2')
+        third_message = self.get_email('forwarded_message_french')
+        body_first_message = EmailReplyParser.cut_off_at_signature(first_message.text, include=True)
+        body_second_message = EmailReplyParser.cut_off_at_signature(second_message.text, include=True)
+        body_third_message = EmailReplyParser.cut_off_at_signature(third_message.text, include=True)
+        assert body_first_message.endswith('Mit freundlichen Grüßen')
+        assert body_second_message.endswith('Mit freundlichen Grüßen')
+        assert body_third_message.endswith('Bonne fin de journée')
 
 
 if __name__ == '__main__':

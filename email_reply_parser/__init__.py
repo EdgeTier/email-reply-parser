@@ -157,7 +157,7 @@ class EmailMessage(object):
         r"|Am (.{,120})\n?(.{,50})?schrieb(\s+)?::"  # German
         r"|Am (.{,120})schrieb(.{,50})?(\s+)?(:)?"  # German
         r"|(.{,50})?schrieb(.{,120})(\s+)?(:)?"  # German
-        r"|(-{,10})(\s*)?(Ursprüngliche|Original|Forwarded).?(Nachricht|Message)(\s*)?(-{,10})" #German/English
+        r"|-(-*)?\s?(Ursprüngliche|Original|Forwarded).?(Nachricht|Message)\s?(-*)?-" #German/English
         r"|ma (.{,120})\n?(.{,50})?kirjoitti(\s+)?:"  # Finnish
         r"|ti (.{,120})\n?(.{,50})?kirjoitti(\s+)?:"  # Finnish
         r"|pe (.{,120})\n?(.{,50})?kirjoitti(\s+)?:"  # Finnish
@@ -185,7 +185,7 @@ class EmailMessage(object):
         r"|Στις (.{,120})\n?(.{,50})?έγραψε(\s+)?:"  # Greek
         r")"
     )
-    MULTI_QUOTE_HDR_REGEX = re.compile(_MULTI_QUOTE_HDR_REGEX)
+    MULTI_QUOTE_HDR_REGEX = re.compile(_MULTI_QUOTE_HDR_REGEX,flags=re.IGNORECASE)
 
     EMAIL_SIGNOFF_REGEX = re.compile(
         r"((regards|kind regards|warm regards|best regards|best wishes|sincerely|best|cheers|"
