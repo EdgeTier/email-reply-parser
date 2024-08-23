@@ -34,7 +34,7 @@ class EmailReplyParser(object):
         return EmailReplyParser.read(text).reply
 
     @staticmethod
-    def cut_off_at_signature(body: str, include: Optional[bool] = True, word_limit: Optional[int] = 100):
+    def cut_off_at_signature(body: str, include: Optional[bool] = True, word_limit: Optional[int] = 1000):
         """
         Remove the signature section from an email, and use the email Reply Parser to try to remove any
         "thread" content.
@@ -157,7 +157,8 @@ class EmailMessage(object):
         r"|Am (.{,120})\n?(.{,50})?schrieb(\s+)?::"  # German
         r"|Am (.{,120})schrieb(.{,50})?(\s+)?(:)?"  # German
         r"|(.{,50})?schrieb(.{,120})(\s+)?(:)?"  # German
-        r"|-(-*)?\s?(Ursprüngliche|Original|Forwarded).?(Nachricht|Message)\s?(-*)?-" #German/English
+        r"|(-(-*)?\s?(Ursprüngliche|Original).?(Nachricht|Message)\s?(-*)?-)" #German/English
+        r"|-(-*)?\s?Forwarded.?Message\s?(-*)?-" #German/English
         r"|ma (.{,120})\n?(.{,50})?kirjoitti(\s+)?:"  # Finnish
         r"|ti (.{,120})\n?(.{,50})?kirjoitti(\s+)?:"  # Finnish
         r"|pe (.{,120})\n?(.{,50})?kirjoitti(\s+)?:"  # Finnish
@@ -171,8 +172,8 @@ class EmailMessage(object):
         r"|No dia (.{,120})\n?(.{,50})?escreveu(\s+)?:"  # Portuguese
         r"|El (.{,120})\n?(.{,50})?escribio(\s+)?:"  # Spanish
         r"|El (.{,120})\n?(.{,50})?escribió(\s+)?:"  # Spanish
-        r"|Le (.{,120})\n?(.{,50})?ecrit(\s+)?(:)?"  # French
-        r"|Le (.{,120})\n?(.{,50})?écrit(\s+)?(:)?"  # French
+        r"|Le (.{,120})\n?(.{,50})?ecrit(\s+)?:?"  # French
+        r"|Le (.{,120})\n?(.{,50})?écrit(\s+)?:?"  # French
         r"|Dna (.{,120})\n?(.{,50})?napisala\(a\)(\s+)?:"  # Slovak
         r"|po (.{,120})\n?(.{,50})?napisal\(a\)(\s+)?:"  # Slovak
         r"|Dnia (.{,120})\n?(.{,50})?napisal\(a\)(\s+)?:" # Polish

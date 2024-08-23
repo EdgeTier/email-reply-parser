@@ -389,6 +389,10 @@ class EmailMessageTest(unittest.TestCase):
         assert body_second_message.endswith('Mit freundlichen Grüßen')
         assert body_third_message.endswith('Bonne fin de journée')
 
+    def test_word_limit (self):
+        test = self.get_email('test_word_limit')
+        body = EmailReplyParser.cut_off_at_signature(test.text, include=True, word_limit=500)
+        assert body.endswith('Cdt')
 
 if __name__ == '__main__':
     unittest.main()
