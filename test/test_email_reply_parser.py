@@ -350,5 +350,50 @@ class EmailMessageTest(unittest.TestCase):
         assert body_second_message.startswith("Beste,")
         assert body_second_message.endswith("Timmy")
 
+    def test_french_sign_off(self):
+        """
+        Tests that we're parsing the 'On Jan 31 X wrote:' correctly in french.
+        """
+
+        message = self.get_email('french_signoff')
+        body = EmailReplyParser.cut_off_at_signature(message.text, include=True)
+        assert body.endswith('Il est signalé site innaxecible')
+
+    def test_german_sign_off(self):
+        """
+        Tests that we're parsing the 'On Jan 31 X wrote:' correctly in german.
+        """
+
+        first_message = self.get_email('german_signoff')
+        second_message = self.get_email('german_signoff_2')
+        body_first_message = EmailReplyParser.cut_off_at_signature(first_message.text, include=True)
+        body_second_message = EmailReplyParser.cut_off_at_signature(second_message.text, include=True)
+        assert body_first_message.endswith('Mit freundlichen Grüßen')
+        assert body_second_message.endswith('Freundliche Grüße')
+
+    def test_orginal_message_sign_off(self):
+        """
+        Tests that we're parsing the following correctly in german/french/english:
+         ---- Original Message ----
+        --------- Ursprungliche Nachricht ---------
+         ----Original-Nachricht----
+         ---------- Forwarded message ---------
+        """
+        first_message = self.get_email('original_message_german')
+        second_message = self.get_email('original_message_german_2')
+        third_message = self.get_email('forwarded_message_french')
+        body_first_message = EmailReplyParser.cut_off_at_signature(first_message.text, include=True)
+        body_second_message = EmailReplyParser.cut_off_at_signature(second_message.text, include=True)
+        body_third_message = EmailReplyParser.cut_off_at_signature(third_message.text, include=True)
+        assert body_first_message.endswith('Mit freundlichen Grüßen')
+        assert body_second_message.endswith('Mit freundlichen Grüßen')
+        assert body_third_message.endswith('Bonne fin de journée')
+
+    def test_word_limit (self):
+        test = self.get_email('test_word_limit')
+        body = EmailReplyParser.cut_off_at_signature(test.text, include=True, word_limit=500)
+        assert body.endswith('Cdt')
+
 if __name__ == '__main__':
     unittest.main()
+
