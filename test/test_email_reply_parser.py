@@ -2,9 +2,9 @@ import os
 import sys
 import unittest
 import time
-from email_reply_parser import EmailReplyParser
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
+from email_reply_parser import EmailReplyParser
 
 
 class EmailMessageTest(unittest.TestCase):
@@ -118,20 +118,24 @@ class EmailMessageTest(unittest.TestCase):
         message_english = self.get_email('email_signature')
         message_german = self.get_email('email_german')
         message_french = self.get_email('email_french')
+        message_arabic = self.get_email('email_arabic')
 
         body_english = EmailReplyParser.cut_off_at_signature(message_english.text, include=True, word_limit=100)
         body_german = EmailReplyParser.cut_off_at_signature(message_german.text, include=True, word_limit=100)
         body_french = EmailReplyParser.cut_off_at_signature(message_french.text, include=True, word_limit=100)
+        body_arabic = EmailReplyParser.cut_off_at_signature(message_arabic.text, include=True, word_limit=100)
 
         assert body_english.endswith('Kind regards,\n\nPerrin Aybara')
         assert body_german.endswith('Mit freundlichen Grüßen,\n\nLukas')
         assert body_french.endswith('Bien à vous,\n\nNicolette Baudelaire')
+        assert body_arabic.endswith('سيتم مراجعة الحساب مجددا بعد نشاطك القادم.')
 
     def test_include_signature_false(self):
         # Test that the cut_off_at_signature function ends an email before the sign-off when include = False
         message_english = self.get_email('email_signature')
         message_german = self.get_email('email_german')
         message_french = self.get_email('email_french')
+        # No Email signature for arabic because they are uncommon and not standard practise
 
         body_english = EmailReplyParser.cut_off_at_signature(message_english.text, include=False, word_limit=100)
         body_german = EmailReplyParser.cut_off_at_signature(message_german.text, include=False, word_limit=100)
@@ -164,6 +168,12 @@ class EmailMessageTest(unittest.TestCase):
         body = EmailReplyParser.cut_off_at_signature(message.text, include=False, word_limit=100)
         assert body == "Bonjour, ca va bien!"
 
+    def test_clean_email_arabic(self):
+        # Test Arabic regex
+        message = self.get_email('email_arabic_2')
+        body = EmailReplyParser.cut_off_at_signature(message.text, include=False, word_limit=100)
+        assert body == "لدي ايداعات كثيره وخسائر كثيره واكرر طلبي"
+
     def test_clean_email_content_no_change(self):
         # Ensure that a short email with no reply and no signature doesn't change
         message = self.get_email('email_one_line')
@@ -188,16 +198,19 @@ class EmailMessageTest(unittest.TestCase):
         message_portuguese = self.get_email('email_iphone_portuguese')
         message_polish = self.get_email('email_iphone_polish')
         message_finnish = self.get_email('email_iphone_finnish')
+        message_arabic = self.get_email('email_iphone_arabic')
 
         body_french = EmailReplyParser.cut_off_at_signature(message_french.text)
         body_portuguese = EmailReplyParser.cut_off_at_signature(message_portuguese.text)
         body_polish = EmailReplyParser.cut_off_at_signature(message_polish.text)
         body_finnish = EmailReplyParser.cut_off_at_signature(message_finnish.text)
+        body_arabic = EmailReplyParser.cut_off_at_signature(message_arabic.text)
 
         assert body_french.endswith("Au revoir,\n\nKelsier")
         assert body_portuguese.endswith("Adeus,\n\nOtis")
         assert body_polish.endswith("Do widzenia,\n\nTriss")
         assert body_finnish.endswith("Hyvästi,\n\nTorin")
+        assert body_arabic.endswith("أنا ماني فاهم أنتي تتكلمين عن شنو بضبط …؟")
 
     def test_remove_SIG_REGEX_start(self):
         # Test that any "Sent from iPhone" messages are removed at the beginning of an email
@@ -264,6 +277,10 @@ class EmailMessageTest(unittest.TestCase):
         body = EmailReplyParser.cut_off_at_signature(message.text, include=True)
         assert body == "This is a german email"
 
+        message = self.get_email('email_arabic_3')
+        body = EmailReplyParser.cut_off_at_signature(message.text, include=True)
+        assert body == "مرحبا اريد ١٥٠ دولار لوسمحتي"
+
     def test_sent_from_device_in_thread(self):
         """
         Tests that if the thread becomes malformed we will be able to parse out the correct part if a sent from device is present
@@ -306,9 +323,9 @@ class EmailMessageTest(unittest.TestCase):
         body = EmailReplyParser.cut_off_at_signature(message_dash_signoff.text)
         assert body.endswith("Perrin Aybara")
 
-        message_bullets = self.get_email("email_with_bullets")
+        message_bullets = self.get_email("email_bullets")
         body = EmailReplyParser.cut_off_at_signature(message_bullets.text)
-        assert body.endswith("Jane")
+        assert body.endswith("another")
 
     def test_remove_quoted_text(self):
         """Tests that we cut off an email correctly once we see quoted text '>'"""
