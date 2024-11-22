@@ -449,6 +449,7 @@ class EmailMessage(object):
 
         if len(signoff_matches_start_positions) > 0 and signoff_matches_start_positions[0] < len(body):
             # If a sign-off was found, cut-off email at starting position
+            # If there's one than more matches, go for the last one
             idx = 0 if len(signoff_matches) <= 1 else -1
             body = body[:signoff_matches_start_positions[idx]]
 
