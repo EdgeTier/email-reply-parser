@@ -5,8 +5,9 @@
 """
 
 import re
-from typing import Optional, List
+from typing import Optional, List, Dict
 import unidecode
+from settings import UNIDECODE_EXCEPTIONS
 
 
 class EmailReplyParser(object):
@@ -162,8 +163,8 @@ class EmailMessage(object):
         r"|tors (.{,120})\n?(.{,50})?skrev(\s+):"  # Norwegian
         r"|ons (.{,120})\n?(.{,50})?skrev(\s+):"  # Norwegian
         r"|Am (.{,120})\n?(.{,50})?schrieb(\s+)?::"  # German
-        r"|Am (.{,120})schrieb(.{,50})?(\s+)?(:)?"  # German
-        r"|(.{,50})?schrieb(.{,120})(\s+)?(:)?"  # German
+        r"|Am (.{,120})\bschrieb\b(.{,50})?(\s+)?(:)?"  # German
+        r"|(.{,50})?\bschrieb\b(.{,120})(\s+)?(:)?"  # German
         r"|(-(-*)?\s?(Ursprüngliche|Original).?(Nachricht|Message)\s?(-*)?-)" #German/English
         r"|-(-*)?\s?Forwarded.?Message\s?(-*)?-" #German/English
         r"|ma (.{,120})\n?(.{,50})?kirjoitti(\s+)?:"  # Finnish
@@ -324,7 +325,7 @@ class EmailMessage(object):
         Determines if a signature can be found and if so, whether to end the email before or after the signature.
         """
         # Make unidecode copy of body to check against SENT_FROM_DEVICE_REGEX and EMAIL_SIGNOFF_REGEX
-        body_clean = unidecode.unidecode(body)
+        body_clean = EmailMessage.unidecode_with_exceptions(body, UNIDECODE_EXCEPTIONS)
 
         # Find sign-off or sent from device match for unidecode copy
         signoff_matches = list(EmailMessage.EMAIL_SIGNOFF_REGEX.finditer(body_clean))
@@ -480,6 +481,24 @@ class EmailMessage(object):
             body = re.sub(substring, "", body)
 
         return body.strip()
+
+    @staticmethod
+    def unidecode_with_exceptions(text: str, exceptions: Dict):
+        """
+        Handles cases where some characters such as € gets replace with EUR and this messes up regex match positions
+        """
+        # Replace exceptions with placeholders
+        for char, placeholder in exceptions.items():
+            text = text.replace(char, placeholder)
+
+        # Apply unidecode
+        decoded_text = unidecode.unidecode(text)
+
+        # Replace placeholders back with original characters
+        for char, placeholder in exceptions.items():
+            decoded_text = decoded_text.replace(placeholder, char)
+
+        return decoded_text
 
 
 class Fragment(object):
