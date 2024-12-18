@@ -299,16 +299,22 @@ class EmailMessageTest(unittest.TestCase):
         message_hungarian = self.get_email("sent_from_device_in_thread_hungarian")
         message_dutch = self.get_email("sent_from_device_in_thread_dutch")
         message_romanian = self.get_email("sent_from_device_in_thread_romanian")
+        message_portuguese = self.get_email("sent_from_device_in_thread_portuguese")
+        message_german = self.get_email("sent_from_device_in_thread_german")
 
         body_english = EmailReplyParser.cut_off_at_signature(message_english.text)
         body_hungarian = EmailReplyParser.cut_off_at_signature(message_hungarian.text)
         body_dutch = EmailReplyParser.cut_off_at_signature(message_dutch.text)
         body_romanian = EmailReplyParser.cut_off_at_signature(message_romanian.text)
+        body_portuguese = EmailReplyParser.cut_off_at_signature(message_portuguese.text)
+        body_german = EmailReplyParser.cut_off_at_signature(message_german.text)
 
         assert body_english == "Yes that would be fine"
         assert body_hungarian == "Yes that would be fine"
         assert body_dutch == "Yes that would be fine"
         assert body_romanian == "Yes that would be fine"
+        assert body_portuguese == "Yes o Would like the price ajustament of 26€ and i Will keep the boots"
+        assert body_german == "Hallo.Bis heute weis ich nicht ob diese Creolie welche ich habe nicht bekommen sind mir gut geschrieben LgElisabeth"
 
     def test_remove_non_alphabetic_signature_patter(self):
         """
@@ -410,6 +416,12 @@ class EmailMessageTest(unittest.TestCase):
         test = self.get_email('test_word_limit')
         body = EmailReplyParser.cut_off_at_signature(test.text, include=True, word_limit=500)
         assert body.endswith('Cdt')
+
+    def test_paul(self):
+        test = self.get_email('test')
+        body = EmailReplyParser.cut_off_at_signature(test.text, include=True)
+        print(body)
+        print("a")
 
 if __name__ == '__main__':
     unittest.main()
