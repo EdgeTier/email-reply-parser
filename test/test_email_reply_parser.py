@@ -156,6 +156,10 @@ class EmailMessageTest(unittest.TestCase):
         assert body_short.endswith('TEN!')
         assert body_long.endswith('FIVE HUNDRED IS HERE!')
 
+        message = self.get_email('test_word_limit')
+        body = EmailReplyParser.cut_off_at_signature(message.text, include=True, word_limit=500)
+        assert body.endswith('Cdt')
+
     def test_clean_email_portuguese(self):
         # Test Portuguese regex
         message = self.get_email('email_portuguese')
@@ -412,10 +416,15 @@ class EmailMessageTest(unittest.TestCase):
         assert body_second_message.endswith('Mit freundlichen Grüßen')
         assert body_third_message.endswith('Bonne fin de journée')
 
-    def test_word_limit (self):
-        test = self.get_email('test_word_limit')
-        body = EmailReplyParser.cut_off_at_signature(test.text, include=True, word_limit=500)
-        assert body.endswith('Cdt')
+    def test_sincerely_signoff(self):
+        """
+        Tests that we correctly ignore any "sincerely" mentions, unless they are clearly a signoff
+        """
+
+        sincerely_message = self.get_email('sincerely_message')
+        body = EmailReplyParser.cut_off_at_signature(sincerely_message.text, include=True)
+
+        assert body.endswith("Paul")
 
 if __name__ == '__main__':
     unittest.main()
