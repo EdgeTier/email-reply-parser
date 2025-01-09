@@ -426,6 +426,17 @@ class EmailMessageTest(unittest.TestCase):
 
         assert body.endswith("Paul")
 
+
+    def test_best_signoff(self):
+        """
+        Tests that we correctly ignore any "best" mentions, unless they are clearly a signoff
+        """
+
+        sincerely_message = self.get_email('best_example')
+        body = EmailReplyParser.cut_off_at_signature(sincerely_message.text, include=True)
+
+        assert body.endswith("Paul")
+
 if __name__ == '__main__':
     unittest.main()
 
