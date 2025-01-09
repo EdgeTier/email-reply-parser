@@ -212,14 +212,14 @@ class EmailMessage(object):
     MULTI_QUOTE_HDR_REGEX = re.compile(_MULTI_QUOTE_HDR_REGEX,flags=re.IGNORECASE)
 
     EMAIL_SIGNOFF_REGEX = re.compile(
-        r"((regards|kind regards|warm regards|best regards|best wishes|sincerely|all the best|mit besten grüßen|mit besten gruben|cheers|"
+        r"((regards|kind regards|warm regards|best regards|best wishes|all the best|mit besten grüßen|mit besten gruben|cheers|"
         r"cordialement|très cordialement|bien cordialement|bien a vous|merci d'avance|d'avance merci|"
         r"Vielen Dank|Vielen Dank und LG|Herzliche Grusse|grussen\s?|grusse\s?|liebe Grusse\s?|"
         r"vielen dank im voraus|Mit freundlichen grussen|"
         r"Mit freundlichen grüßen|Freundliche Grüße|"
         r"saluti|Cordiali saluti|Distinti saluti|buona giornata|cordialmente|"
         r"o zi buna|o zi buna va urez|cu respect|cu stima|cu bine|toate cele bune|"
-        r"saludos cordiales|atentamente|un saludo)(.{0,20})(,|\n))|"
+        r"saludos cordiales|atentamente|un saludo)(.{0,20})(,|\n))|(sincerely.{0,5}(,|\n))|"
         r"((thank you|thanks!?|thank you in advance|thanks in advance|merci|danke|"
         r"grazie|grazie mille|multumesc\s?|multumesc anticipat|multumesc frumos|gracias|muchos gracias)(,?!?\n))|"
         r"(Pozdrawiam.?|Z powazaniem|z pozdrowieniami)",

@@ -417,12 +417,6 @@ class EmailMessageTest(unittest.TestCase):
         body = EmailReplyParser.cut_off_at_signature(test.text, include=True, word_limit=500)
         assert body.endswith('Cdt')
 
-    def test_paul(self):
-        test = self.get_email('test')
-        body = EmailReplyParser.cut_off_at_signature(test.text, include=True)
-        print(body)
-        print("a")
-
 if __name__ == '__main__':
     unittest.main()
 
