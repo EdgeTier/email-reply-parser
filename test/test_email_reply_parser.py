@@ -134,15 +134,18 @@ class EmailMessageTest(unittest.TestCase):
         # Test that the cut_off_at_signature function ends an email before the sign-off when include = False
         message_english = self.get_email('email_signature')
         message_german = self.get_email('email_german')
+        message_german_personio_sample = self.get_email('email_german_personio')
         message_french = self.get_email('email_french')
         # No Email signature for arabic because they are uncommon and not standard practise
 
         body_english = EmailReplyParser.cut_off_at_signature(message_english.text, include=False, word_limit=100)
         body_german = EmailReplyParser.cut_off_at_signature(message_german.text, include=False, word_limit=100)
+        body_german_personio = EmailReplyParser.cut_off_at_signature(message_german_personio_sample.text, include=False, word_limit=100)
         body_french = EmailReplyParser.cut_off_at_signature(message_french.text, include=False, word_limit=100)
 
         assert body_english.endswith('email cut-off point.')
         assert body_german.endswith('November vornehmen.')
+        assert body_german_personio.endswith('Zeiterfassung keine Minusstunden aufgebaut werden.')
         assert body_french.endswith("s'il vous plaît?")
 
     def test_word_limit(self):
