@@ -107,7 +107,7 @@ class EmailMessage(object):
 
     QUOTE_HDR_REGEX = re.compile(
         r"On.*wrote(.*?):$"  # English
-        r"|Il.*ha(.*?)$"  # Italian - in italian the phrase is "ha scritto" but sometimes "scritto" is put on a new line so we won't put the colon at the end
+        r"|Il.*\bha\b(.*?)$"  # Italian - in italian the phrase is "ha scritto" but sometimes "scritto" is put on a new line so we won't put the colon at the end
         r"|mån.*skrev(.*?):$"  # Swedish
         r"|man.*skrev(.*?):$"  # Swedish
         r"|tis.*skrev(.*?):$"  # Norwegian
