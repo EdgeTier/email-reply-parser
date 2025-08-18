@@ -216,7 +216,7 @@ class EmailMessage(object):
         r"cordialement|très cordialement|bien cordialement|bien a vous|merci d'avance|d'avance merci|"
         r"Vielen Dank|Vielen Dank und LG|Herzliche Grusse|grussen\s?|grusse\s?|liebe Grusse\s?|"
         r"vielen dank im voraus|Mit freundlichen grussen|"
-        r"Mit freundlichen grüßen|Freundliche Grüße|"
+        r"Mit freundlichen grüßen|Freundliche Grüße|Freundliche Grusse|"
         r"saluti|Cordiali saluti|Distinti saluti|buona giornata|cordialmente|"
         r"o zi buna|o zi buna va urez|cu respect|cu stima|cu bine|toate cele bune|"
         r"saludos cordiales|atentamente|un saludo)(.{0,20})(,|\n))|(sincerely.{0,5}(,|\n))|"
@@ -462,7 +462,9 @@ class EmailMessage(object):
 
         if len(signoff_matches_start_positions) > 0 and signoff_matches_start_positions[0] < len(body):
             # If a sign-off was found, cut-off email at starting position
-            body = body[:signoff_matches_start_positions[0]]
+            # If there's one than more matches, go for the last one
+            idx = 0 if len(signoff_matches) <= 1 else -1
+            body = body[:signoff_matches_start_positions[idx]]
 
         else:
             # If no sign-off found, cut-off at word limit
