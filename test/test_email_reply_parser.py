@@ -196,6 +196,33 @@ class EmailMessageTest(unittest.TestCase):
         body = EmailReplyParser.cut_off_at_signature(message.text)
         assert body.endswith("Let's see if it works.\n\nK")
 
+    def test_swiss_german_signoff(self):
+        # Regression: "Freundliche Grüsse" (Swiss German) and its ASCII variant "Freundliche Grusse"
+        # were absent from EMAIL_SIGNOFF_REGEX.  Also, the terminator group previously only matched
+        # "," or "\n", so a sign-off at the very end of the string (no trailing newline) was not
+        # stripped.  Both issues caused sign-off text and any quoted thread below it to leak into
+        # the parsed reply as standalone messages.
+
+        # 1. Sign-off at end-of-string — no trailing newline, no quoted thread.
+        no_newline = self.get_email('swiss_german_signoff_no_trailing_newline')
+        body_include = EmailReplyParser.cut_off_at_signature(no_newline.text, include=True, word_limit=None)
+        body_exclude = EmailReplyParser.cut_off_at_signature(no_newline.text, include=False, word_limit=None)
+        assert "Könnten Sie bitte" in body_include
+        assert body_include.endswith("Freundliche Grüsse")
+        assert body_exclude.strip() == "Könnten Sie bitte meine Einzahlung freigeben?"
+
+        # 2. Sign-off followed by a quoted thread — the thread must be stripped.
+        with_thread = self.get_email('swiss_german_signoff_with_quoted_thread')
+        body_thread = EmailReplyParser.cut_off_at_signature(with_thread.text, include=True, word_limit=None)
+        assert "schrieb am" not in body_thread, "Quoted thread header should be stripped"
+        assert "Gerne bestätigen" not in body_thread, "Quoted body should be stripped"
+        assert "Könnten Sie bitte" in body_thread
+
+        # 3. parse_reply should also strip everything from the sign-off onwards.
+        reply = EmailReplyParser.parse_reply(with_thread.text)
+        assert "schrieb am" not in reply
+        assert "Gerne bestätigen" not in reply
+
     def test_remove_SIG_REGEX_end(self):
         # Test that any "Sent from iPhone" messages are removed at the end of an email
         message_french = self.get_email('email_iphone_french')
