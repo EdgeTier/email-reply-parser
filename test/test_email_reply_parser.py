@@ -464,6 +464,23 @@ class EmailMessageTest(unittest.TestCase):
 
         assert body.endswith("Paul")
 
+    def test_bottom_posting_headers_preserved(self):
+        """
+        Tests that customer messages are preserved when using bottom-posting style, where the
+        quoted email headers (e.g. **Gesendet/Von/An/Betreff** in German Outlook) appear at the
+        very top of the body and the customer's actual reply appears below them.
+
+        Regression test for WATS-339: Bet-At-Home Zendesk interactions where email replies after
+        a closed chat session were stored as empty messages because the parser treated the leading
+        Gesendet/Von/An/Betreff header block as a quote separator and hid everything below it.
+        """
+        message = self.get_email('bet_at_home_bottom_posting')
+        body = EmailReplyParser.cut_off_at_signature(message.text, include=True, word_limit=None)
+
+        assert 'Guten Tag,' in body
+        assert 'Ich werde keine Fotos meiner Kreditkarte machen' in body
+        assert body != ''
+
 if __name__ == '__main__':
     unittest.main()
 

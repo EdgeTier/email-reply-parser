@@ -237,6 +237,47 @@ class EmailMessage(object):
         self.text = text.replace('\r\n', '\n')
         self.found_visible = False
 
+    def _strip_leading_header_block(self) -> None:
+        """
+        Handles "bottom-posting" emails where the quoted-message headers (e.g. ``**Von:**``,
+        ``**Gesendet:**``, ``**An:**``, ``**Betreff:**`` in German Outlook) appear at the very
+        start of the body, with the customer's actual reply placed *below* them.
+
+        If the first non-empty line of the body matches ``HEADER_REGEX``, this method walks
+        forward through the contiguous header block (header lines and the blank lines between
+        them) and sets ``self.text`` to the content that follows — i.e. the real reply.  This
+        lets the normal reverse-scan algorithm see only the reply content rather than marking
+        it hidden because headers appear "before" it in reverse order.
+
+        If the body does **not** start with a header line the method is a no-op.
+        """
+        lines = self.text.split('\n')
+        first_non_empty_idx = next((i for i, ln in enumerate(lines) if ln.strip()), None)
+        if first_non_empty_idx is None or not self.HEADER_REGEX.match(lines[first_non_empty_idx]):
+            return
+
+        i = 0
+        in_header_block = True
+        while i < len(lines) and in_header_block:
+            line = lines[i]
+            if self.HEADER_REGEX.match(line.strip()):
+                i += 1
+            elif not line.strip():
+                # Blank line: peek ahead to decide whether we are still inside the header block.
+                j = i + 1
+                while j < len(lines) and not lines[j].strip():
+                    j += 1
+                if j < len(lines) and self.HEADER_REGEX.match(lines[j].strip()):
+                    i = j  # Blank run between two header lines — stay inside the block.
+                else:
+                    i = j  # Blank run between last header and content — exit the block.
+                    in_header_block = False
+            else:
+                in_header_block = False
+
+        if i > 0 and i < len(lines):
+            self.text = '\n'.join(lines[i:])
+
     def read(self):
         """ Creates new fragment for each line
             and labels as a signature, quote, or hidden.
@@ -245,6 +286,11 @@ class EmailMessage(object):
         """
 
         self.found_visible = False
+
+        # Strip a leading quoted-header block produced by bottom-posting email clients
+        # (e.g. German Outlook where Von/Gesendet/An/Betreff appear at the top and the
+        # customer's reply follows below).
+        self._strip_leading_header_block()
 
         is_multi_quote_header = self.MULTI_QUOTE_HDR_REGEX.search(self.text.strip())
         if is_multi_quote_header:
