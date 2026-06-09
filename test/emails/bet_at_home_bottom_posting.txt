@@ -1,10 +1,10 @@
 **Gesendet:** Mittwoch, 3. Juni 2026 um 09:43
 
-**Von:**"bet-at-home.de Support" <support.de@bet-at-home.com>
+**Von:**"Example Support" <support@example.com>
 
-**An:**"Pawel Kaszuba" <pawelkaszuba@web.de>
+**An:**"Max Mustermann" <max.mustermann@example.com>
 
-**Betreff:** Ihre Kreditkartenautorisierung (Request #565964)
+**Betreff:** Ihre Kreditkartenautorisierung (Request #000000)
 
 
 
@@ -15,4 +15,3 @@ Ich werde keine Fotos meiner Kreditkarte machen, das war nie ein Problem, und je
 
 
 **. . . . . . . . . .**
-

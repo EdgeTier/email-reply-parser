@@ -1,0 +1,39 @@
+name: Bump Version
+
+on:
+  push:
+    branches: ["master", "main"]
+
+jobs:
+  bump:
+    runs-on: ubuntu-latest
+    # Skip if the last commit was itself a version bump to avoid infinite loops
+    if: "!startsWith(github.event.head_commit.message, 'chore: bump version')"
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Bump patch version
+        id: bump
+        run: |
+          current=$(python3 -c "
+          import re, pathlib
+          content = pathlib.Path('email_reply_parser/version.py').read_text()
+          version = re.search(r\"VERSION = '(.+)'\", content).group(1)
+          print(version)
+          ")
+          IFS='.' read -r major minor patch <<< "$current"
+          new_patch=$((patch + 1))
+          new_version="$major.$minor.$new_patch"
+          sed -i "s/VERSION = '$current'/VERSION = '$new_version'/" email_reply_parser/version.py
+          echo "new_version=$new_version" >> "$GITHUB_OUTPUT"
+
+      - name: Commit and push
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add email_reply_parser/version.py
+          git commit -m "chore: bump version to ${{ steps.bump.outputs.new_version }}"
+          git push
