@@ -481,6 +481,25 @@ class EmailMessageTest(unittest.TestCase):
         assert 'Ich werde keine Fotos meiner Kreditkarte machen' in body
         assert body != ''
 
+    def test_vielen_dank_courtesy_phrase_not_treated_as_signoff(self):
+        """
+        Tests that "vielen Dank für Ihre Anfrage!" in the opening of an agent reply is NOT
+        treated as a sign-off by EMAIL_SIGNOFF_REGEX, which would cause the rest of the
+        message body to be truncated.
+
+        Regression test for WATS-339 (follow-up): Bet-At-Home agent replies opening with
+        "vielen Dank für Ihre Anfrage!" had all content after the first sentence stripped
+        because "Vielen Dank" matched the sign-off regex with the .{0,20} group allowing
+        "für Ihre Anfrage!" as a suffix.
+        """
+        message = self.get_email('vielen_dank_mid_message')
+        body = EmailReplyParser.cut_off_at_signature(message.text, include=True, word_limit=None)
+
+        assert 'vielen Dank für Ihre Anfrage!' in body
+        assert 'Wäre schön, wenn wir Ihnen damit eine kleine Freude machen.' in body
+        assert 'Sollten Sie Fragen haben, stehen wir selbstverständlich gerne zur Verfügung.' in body
+
+
 if __name__ == '__main__':
     unittest.main()
 

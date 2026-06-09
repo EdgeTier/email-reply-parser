@@ -214,13 +214,13 @@ class EmailMessage(object):
     EMAIL_SIGNOFF_REGEX = re.compile(
         r"((regards|kind regards|warm regards|best regards|best wishes|all the best|mit besten grüßen|mit besten gruben|cheers|"
         r"cordialement|très cordialement|bien cordialement|bien a vous|merci d'avance|d'avance merci|"
-        r"Vielen Dank|Vielen Dank und LG|Herzliche Grusse|grussen\s?|grusse\s?|liebe Grusse\s?|"
+        r"Vielen Dank und LG|Herzliche Grusse|grussen\s?|grusse\s?|liebe Grusse\s?|"
         r"vielen dank im voraus|Mit freundlichen grussen|Mit freundlichen Grüssen|"
         r"Mit freundlichen grüßen|Freundliche Grüße|Freundliche Grüsse|Freundliche Grusse|"
         r"saluti|Cordiali saluti|Distinti saluti|buona giornata|cordialmente|"
         r"o zi buna|o zi buna va urez|cu respect|cu stima|cu bine|toate cele bune|"
         r"saludos cordiales|atentamente|un saludo)(.{0,20})(,|\n|\Z))|(sincerely.{0,5}(,|\n|\Z))|"
-        r"((thank you|thanks!?|thank you in advance|thanks in advance|merci|danke|"
+        r"((thank you|thanks!?|thank you in advance|thanks in advance|merci|danke|Vielen Dank|"
         r"grazie|grazie mille|multumesc\s?|multumesc anticipat|multumesc frumos|gracias|muchos gracias)(,?!?\n))|"
         r"(Pozdrawiam.?|Z powazaniem|z pozdrowieniami)",
         # No Email signature for arabic because they are uncommon and not standard practise
