@@ -69,7 +69,7 @@ class EmailMessage(object):
         The regexes cover English, Italian, Swedish, Finnish, Danish, German, Portuguese, Polish, French to date.
     """
     SENT_FROM_DEVICE_REGEX = re.compile(
-        r"(^--|^__|^\* \* \*)"
+        r"(^--|^__|^\* \* \*|^\*\*[\s.]+\*\*$)"
         r"|(^Sent from .{,50}$)"  # English
         r"|(^Sent using the mobile mail app)"  # English
         r"|(^Get Outlook for .{,50}$)"  # English

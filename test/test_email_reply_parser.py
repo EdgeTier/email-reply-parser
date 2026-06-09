@@ -500,6 +500,25 @@ class EmailMessageTest(unittest.TestCase):
         assert 'Sollten Sie Fragen haben, stehen wir selbstverständlich gerne zur Verfügung.' in body
 
 
+    def test_bold_separator_footer_stripped(self):
+        """
+        Tests that a bold dot-separator line (``**. . . . . . . . . .**``) used by bet-at-home
+        as an email footer divider is treated as a signature delimiter, hiding the branding
+        footer that follows it from the parsed reply.
+
+        Regression test for WATS-339: the footer block (logo, legal text, ticket reference)
+        was appearing in the visible reply because ``SENT_FROM_DEVICE_REGEX`` did not match
+        the ``**. . . . . . . . . .**`` separator line.
+        """
+        message = self.get_email('bet_at_home_footer_separator')
+        body = EmailReplyParser.parse_reply(message.text)
+
+        assert 'Ich werde keine Fotos' in body
+        assert 'bet-at-home.com Internet Ltd.' not in body
+        assert '**. . . . . . . . . .**' not in body
+        assert '4Y5JPX' not in body
+
+
 if __name__ == '__main__':
     unittest.main()
 
