@@ -165,6 +165,10 @@ class EmailMessage(object):
         r"|من|تم الإرسال|إلى|الموضوع"  # Arabic
         r"|De|Enviado|Para|Assunto|Data):\*?"  # Portuguese
     )
+    # Strict bold-markdown header form produced by Outlook/Zendesk (e.g. ``**Von:**``,
+    # ``**Betreff:**``). Requires the opening ``**`` immediately followed by a keyword and a
+    # colon, so a stray bold line such as ``**To** the team`` does not match.
+    BOLD_HEADER_REGEX = re.compile(r"^\*\*[^*]+:")
     _MULTI_QUOTE_HDR_REGEX = (
         r"(On (.{,120})\n?(.{,50})?wrote(\s+)?:"  # English
         r"|Il (.{,120})\n?(.{,50})?ha(\s+)?:"  # Italian
@@ -239,44 +243,45 @@ class EmailMessage(object):
 
     def _strip_leading_header_block(self) -> None:
         """
-        Handles "bottom-posting" emails where the quoted-message headers (e.g. ``**Von:**``,
+        Handle "bottom-posting" emails where the quoted-message headers (e.g. ``**Von:**``,
         ``**Gesendet:**``, ``**An:**``, ``**Betreff:**`` in German Outlook) appear at the very
         start of the body, with the customer's actual reply placed *below* them.
 
-        If the first non-empty line of the body matches ``HEADER_REGEX``, this method walks
-        forward through the contiguous header block (header lines and the blank lines between
-        them) and sets ``self.text`` to the content that follows — i.e. the real reply.  This
-        lets the normal reverse-scan algorithm see only the reply content rather than marking
-        it hidden because headers appear "before" it in reverse order.
+        The method walks forward over the contiguous block of header lines (ignoring the blank
+        lines that separate them) and, when the block is unambiguously a quoted-header block,
+        sets ``self.text`` to the content that follows so the reverse-scan algorithm sees only
+        the reply rather than marking it hidden because headers appear "before" it in reverse.
 
-        If the body does **not** start with a header line the method is a no-op.
+        To avoid eating a genuine reply whose first line merely starts with a word that
+        ``HEADER_REGEX`` also matches (e.g. "A", "De", "To"), the block is only stripped when it
+        is unambiguous: either it contains **two or more** stacked header lines, or its first
+        header line uses the bold-markdown Outlook form (``**Von:** ...``).
+
+        If the body does **not** start with such a block the method is a no-op.
         """
         lines = self.text.split('\n')
-        first_non_empty_idx = next((i for i, ln in enumerate(lines) if ln.strip()), None)
-        if first_non_empty_idx is None or not self.HEADER_REGEX.match(lines[first_non_empty_idx]):
+        first_index = next((index for index, line in enumerate(lines) if line.strip()), None)
+        if first_index is None or not self.HEADER_REGEX.match(lines[first_index].strip()):
             return
 
-        i = 0
-        in_header_block = True
-        while i < len(lines) and in_header_block:
-            line = lines[i]
-            if self.HEADER_REGEX.match(line.strip()):
-                i += 1
-            elif not line.strip():
-                # Blank line: peek ahead to decide whether we are still inside the header block.
-                j = i + 1
-                while j < len(lines) and not lines[j].strip():
-                    j += 1
-                if j < len(lines) and self.HEADER_REGEX.match(lines[j].strip()):
-                    i = j  # Blank run between two header lines — stay inside the block.
-                else:
-                    i = j  # Blank run between last header and content — exit the block.
-                    in_header_block = False
+        header_count = 0
+        content_start = first_index
+        for index in range(first_index, len(lines)):
+            stripped = lines[index].strip()
+            if not stripped:
+                continue  # Blank line separating header lines — keep scanning.
+            if self.HEADER_REGEX.match(stripped):
+                header_count += 1
+                content_start = index + 1
             else:
-                in_header_block = False
+                break  # First non-header, non-blank line — the reply starts here.
 
-        if i > 0 and i < len(lines):
-            self.text = '\n'.join(lines[i:])
+        first_header_is_bold = self.BOLD_HEADER_REGEX.match(lines[first_index].strip()) is not None
+        if header_count < 2 and not first_header_is_bold:
+            return
+
+        if 0 < content_start < len(lines):
+            self.text = '\n'.join(lines[content_start:])
 
     def read(self):
         """ Creates new fragment for each line
