@@ -69,7 +69,7 @@ class EmailMessage(object):
         The regexes cover English, Italian, Swedish, Finnish, Danish, German, Portuguese, Polish, French to date.
     """
     SENT_FROM_DEVICE_REGEX = re.compile(
-        r"(^--|^__|^\* \* \*)"
+        r"(^--|^__|^\* \* \*|^\*\*[\s.]+\*\*$)"
         r"|(^Sent from .{,50}$)"  # English
         r"|(^Sent using the mobile mail app)"  # English
         r"|(^Get Outlook for .{,50}$)"  # English
@@ -165,6 +165,10 @@ class EmailMessage(object):
         r"|من|تم الإرسال|إلى|الموضوع"  # Arabic
         r"|De|Enviado|Para|Assunto|Data):\*?"  # Portuguese
     )
+    # Strict bold-markdown header form produced by Outlook/Zendesk (e.g. ``**Von:**``,
+    # ``**Betreff:**``). Requires the opening ``**`` immediately followed by a keyword and a
+    # colon, so a stray bold line such as ``**To** the team`` does not match.
+    BOLD_HEADER_REGEX = re.compile(r"^\*\*[^*]+:")
     _MULTI_QUOTE_HDR_REGEX = (
         r"(On (.{,120})\n?(.{,50})?wrote(\s+)?:"  # English
         r"|Il (.{,120})\n?(.{,50})?ha(\s+)?:"  # Italian
@@ -214,13 +218,13 @@ class EmailMessage(object):
     EMAIL_SIGNOFF_REGEX = re.compile(
         r"((regards|kind regards|warm regards|best regards|best wishes|all the best|mit besten grüßen|mit besten gruben|cheers|"
         r"cordialement|très cordialement|bien cordialement|bien a vous|merci d'avance|d'avance merci|"
-        r"Vielen Dank|Vielen Dank und LG|Herzliche Grusse|grussen\s?|grusse\s?|liebe Grusse\s?|"
+        r"Vielen Dank und LG|Herzliche Grusse|grussen\s?|grusse\s?|liebe Grusse\s?|"
         r"vielen dank im voraus|Mit freundlichen grussen|Mit freundlichen Grüssen|"
         r"Mit freundlichen grüßen|Freundliche Grüße|Freundliche Grüsse|Freundliche Grusse|"
         r"saluti|Cordiali saluti|Distinti saluti|buona giornata|cordialmente|"
         r"o zi buna|o zi buna va urez|cu respect|cu stima|cu bine|toate cele bune|"
         r"saludos cordiales|atentamente|un saludo)(.{0,20})(,|\n|\Z))|(sincerely.{0,5}(,|\n|\Z))|"
-        r"((thank you|thanks!?|thank you in advance|thanks in advance|merci|danke|"
+        r"((thank you|thanks!?|thank you in advance|thanks in advance|merci|danke|Vielen Dank|"
         r"grazie|grazie mille|multumesc\s?|multumesc anticipat|multumesc frumos|gracias|muchos gracias)(,?!?\n))|"
         r"(Pozdrawiam.?|Z powazaniem|z pozdrowieniami)",
         # No Email signature for arabic because they are uncommon and not standard practise
@@ -237,6 +241,48 @@ class EmailMessage(object):
         self.text = text.replace('\r\n', '\n')
         self.found_visible = False
 
+    def _strip_leading_header_block(self) -> None:
+        """
+        Handle "bottom-posting" emails where the quoted-message headers (e.g. ``**Von:**``,
+        ``**Gesendet:**``, ``**An:**``, ``**Betreff:**`` in German Outlook) appear at the very
+        start of the body, with the customer's actual reply placed *below* them.
+
+        The method walks forward over the contiguous block of header lines (ignoring the blank
+        lines that separate them) and, when the block is unambiguously a quoted-header block,
+        sets ``self.text`` to the content that follows so the reverse-scan algorithm sees only
+        the reply rather than marking it hidden because headers appear "before" it in reverse.
+
+        To avoid eating a genuine reply whose first line merely starts with a word that
+        ``HEADER_REGEX`` also matches (e.g. "A", "De", "To"), the block is only stripped when it
+        is unambiguous: either it contains **two or more** stacked header lines, or its first
+        header line uses the bold-markdown Outlook form (``**Von:** ...``).
+
+        If the body does **not** start with such a block the method is a no-op.
+        """
+        lines = self.text.split('\n')
+        first_index = next((index for index, line in enumerate(lines) if line.strip()), None)
+        if first_index is None or not self.HEADER_REGEX.match(lines[first_index].strip()):
+            return
+
+        header_count = 0
+        content_start = first_index
+        for index in range(first_index, len(lines)):
+            stripped = lines[index].strip()
+            if not stripped:
+                continue  # Blank line separating header lines — keep scanning.
+            if self.HEADER_REGEX.match(stripped):
+                header_count += 1
+                content_start = index + 1
+            else:
+                break  # First non-header, non-blank line — the reply starts here.
+
+        first_header_is_bold = self.BOLD_HEADER_REGEX.match(lines[first_index].strip()) is not None
+        if header_count < 2 and not first_header_is_bold:
+            return
+
+        if 0 < content_start < len(lines):
+            self.text = '\n'.join(lines[content_start:])
+
     def read(self):
         """ Creates new fragment for each line
             and labels as a signature, quote, or hidden.
@@ -245,6 +291,11 @@ class EmailMessage(object):
         """
 
         self.found_visible = False
+
+        # Strip a leading quoted-header block produced by bottom-posting email clients
+        # (e.g. German Outlook where Von/Gesendet/An/Betreff appear at the top and the
+        # customer's reply follows below).
+        self._strip_leading_header_block()
 
         is_multi_quote_header = self.MULTI_QUOTE_HDR_REGEX.search(self.text.strip())
         if is_multi_quote_header:

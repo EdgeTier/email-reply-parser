@@ -464,6 +464,61 @@ class EmailMessageTest(unittest.TestCase):
 
         assert body.endswith("Paul")
 
+    def test_bottom_posting_headers_preserved(self):
+        """
+        Tests that customer messages are preserved when using bottom-posting style, where the
+        quoted email headers (e.g. **Gesendet/Von/An/Betreff** in German Outlook) appear at the
+        very top of the body and the customer's actual reply appears below them.
+
+        Regression test for WATS-339: Bet-At-Home Zendesk interactions where email replies after
+        a closed chat session were stored as empty messages because the parser treated the leading
+        Gesendet/Von/An/Betreff header block as a quote separator and hid everything below it.
+        """
+        message = self.get_email('bet_at_home_bottom_posting')
+        body = EmailReplyParser.cut_off_at_signature(message.text, include=True, word_limit=None)
+
+        assert 'Guten Tag,' in body
+        assert 'Ich werde keine Fotos meiner Kreditkarte machen' in body
+        assert body != ''
+
+    def test_vielen_dank_courtesy_phrase_not_treated_as_signoff(self):
+        """
+        Tests that "vielen Dank für Ihre Anfrage!" in the opening of an agent reply is NOT
+        treated as a sign-off by EMAIL_SIGNOFF_REGEX, which would cause the rest of the
+        message body to be truncated.
+
+        Regression test for WATS-339 (follow-up): Bet-At-Home agent replies opening with
+        "vielen Dank für Ihre Anfrage!" had all content after the first sentence stripped
+        because "Vielen Dank" matched the sign-off regex with the .{0,20} group allowing
+        "für Ihre Anfrage!" as a suffix.
+        """
+        message = self.get_email('vielen_dank_mid_message')
+        body = EmailReplyParser.cut_off_at_signature(message.text, include=True, word_limit=None)
+
+        assert 'vielen Dank für Ihre Anfrage!' in body
+        assert 'Wäre schön, wenn wir Ihnen damit eine kleine Freude machen.' in body
+        assert 'Sollten Sie Fragen haben, stehen wir selbstverständlich gerne zur Verfügung.' in body
+
+
+    def test_bold_separator_footer_stripped(self):
+        """
+        Tests that a bold dot-separator line (``**. . . . . . . . . .**``) used by bet-at-home
+        as an email footer divider is treated as a signature delimiter, hiding the branding
+        footer that follows it from the parsed reply.
+
+        Regression test for WATS-339: the footer block (logo, legal text, ticket reference)
+        was appearing in the visible reply because ``SENT_FROM_DEVICE_REGEX`` did not match
+        the ``**. . . . . . . . . .**`` separator line.
+        """
+        message = self.get_email('bet_at_home_footer_separator')
+        body = EmailReplyParser.parse_reply(message.text)
+
+        assert 'Ich werde keine Fotos' in body
+        assert 'bet-at-home.com Internet Ltd.' not in body
+        assert '**. . . . . . . . . .**' not in body
+        assert '4Y5JPX' not in body
+
+
 if __name__ == '__main__':
     unittest.main()
 
