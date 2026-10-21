@@ -4,7 +4,7 @@ import unittest
 import time
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
-from email_reply_parser import EmailReplyParser
+from email_reply_parser import EmailMessage, EmailReplyParser
 
 
 class EmailMessageTest(unittest.TestCase):
@@ -517,6 +517,99 @@ class EmailMessageTest(unittest.TestCase):
         assert 'bet-at-home.com Internet Ltd.' not in body
         assert '**. . . . . . . . . .**' not in body
         assert '4Y5JPX' not in body
+
+    def test_single_subject_line_above_reply_stripped(self):
+        """
+        Tests that a lone ``Subject:`` line above the reply (as Salesforce stores email bodies) is stripped rather than
+        treated as a header that hides the reply below it, while the quoted thread is still cut.
+        """
+        message = self.get_email('subject_line_reply')
+        body = EmailReplyParser.cut_off_at_signature(message.text, include=True, word_limit=None)
+
+        assert body.startswith('Hello,\n\nI have uploaded the guarantor form')
+        assert body.endswith('Jane Example')
+        assert 'Subject:' not in body
+        assert 'We still need a guarantor form' not in body
+
+    def test_forward_or_quote_without_new_text_keeps_quoted_message(self):
+        """
+        Tests that when nothing but a divider or a "Sent from ..." line precedes the first quote boundary, the quoted
+        or forwarded message is kept as the reply with its boundary line and header block removed.
+        """
+        expected_content = {
+            'original_message_no_reply': 'My tenancy ended on 31 July',
+            'forwarded_message_no_reply': 'The boiler has stopped working again',
+            'quote_header_no_reply': 'I would like to give notice on my tenancy',
+            'outlook_divider_no_reply': "I paid this month's rent yesterday",
+            'outlook_device_line_no_reply': 'We moved in today and noticed the inventory',
+        }
+        for name, content in expected_content.items():
+            with self.subTest(name=name):
+                message = self.get_email(name)
+                body = EmailReplyParser.cut_off_at_signature(message.text, include=True, word_limit=None)
+
+                assert body.startswith('Hello,\n\n' + content), body
+                assert body.endswith('Jane Example'), body
+                for boundary in ('From:', 'Subject:', 'wrote:', '____', '----', 'Sent from Outlook'):
+                    assert boundary not in body, body
+
+    def test_forward_without_new_text_still_cuts_older_thread(self):
+        """
+        Tests that only the first forwarded message is kept when it carries an older quoted thread of its own.
+        """
+        text = (
+            '-----Original Message-----\n'
+            'From: Jane Example <jane.example@example.com>\n'
+            'Sent: Monday, 3 August 2026 09:15\n'
+            'To: Lettings Team <lettings@example.com>\n'
+            'Subject: Keys\n'
+            '\n'
+            'Where should I return the keys?\n'
+            '\n'
+            'On Fri, 31 Jul 2026 at 10:00, Lettings Team <lettings@example.com> wrote:\n'
+            'Your tenancy ends today.\n'
+        )
+        self.assertEqual('Where should I return the keys?', EmailReplyParser.parse_reply(text))
+
+    def test_reply_above_quote_boundary_still_cuts_quote(self):
+        """
+        Tests that a reply written above a quote boundary is still the only part kept.
+        """
+        texts = [
+            ('Thanks, that works for me.\n\n-----Original Message-----\nFrom: Lettings Team <lettings@example.com>\n'
+             'Subject: Viewing\n\nCan you do Tuesday?\n'),
+            ('Thanks, that works for me.\n________________________________\n'
+             'From: Lettings Team <lettings@example.com>\nSent: Monday, 3 August 2026 09:15\nSubject: Viewing\n\n'
+             'Can you do Tuesday?\n'),
+            ('Thanks, that works for me.\n\nOn Mon, 3 Aug 2026 at 09:15, Lettings Team <lettings@example.com> wrote:\n'
+             'Can you do Tuesday?\n'),
+        ]
+        for text in texts:
+            with self.subTest(text=text):
+                self.assertEqual('Thanks, that works for me.', EmailReplyParser.parse_reply(text))
+
+    def test_reply_opening_with_short_header_word_preserved(self):
+        """
+        Tests that a reply whose first word is also a short header keyword is not stripped as a header line.
+        """
+        openings = ('A quick question about my deposit.', 'De toute facon, je pars demain.', 'To the team, thanks.')
+        for opening in openings:
+            with self.subTest(opening=opening):
+                text = opening + '\n\nOn Mon, 3 Aug 2026 at 09:15, Lettings Team <lettings@example.com> wrote:\nHi\n'
+                self.assertEqual(opening, EmailReplyParser.parse_reply(text))
+
+    def test_single_short_keyword_header_line_not_stripped(self):
+        """
+        Tests that a lone header line using a short keyword (``A:``, ``De:``, ``To:``) is left in place, since it may
+        be the customer's own text; only multi-line blocks or long-form keywords are stripped.
+        """
+        for first_line in ('A: yes, please go ahead', 'De: mon cote tout va bien', 'To: the lettings team'):
+            with self.subTest(first_line=first_line):
+                text = first_line + '\n\nThe rest of my reply.'
+                message = EmailMessage(text)
+                message._strip_contentless_preamble()
+                message._strip_leading_header_block()
+                self.assertEqual(text, message.text)
 
 
 if __name__ == '__main__':
