@@ -171,7 +171,11 @@ class EmailMessage(object):
     BOLD_HEADER_REGEX = re.compile(r"^\*\*[^*]+:")
     # Header lines that ``HEADER_REGEX`` does not recognise but that appear inside the header block of a forwarded or
     # quoted message (e.g. ``Date:`` in Gmail forwards, ``Cc:`` in Outlook replies).
-    EXTRA_HEADER_REGEX = re.compile(r"^(\*+)?(Date|Cc|Bcc|Received|Reply-To)\*?:")
+    EXTRA_HEADER_REGEX = re.compile(r"^(\*+)?(Date|Cc|Bcc|Received|Reply-To|Importance)\*?:")
+    # Lines that may sit inside a header block without being recognised headers: a short custom ``Label:`` field
+    # (e.g. ``Ref ID: 123``) or a wrapped continuation of a ``To:``/``Cc:`` address list.
+    HEADER_LABEL_REGEX = re.compile(r"^[A-Z][\w-]*( [\w-]+){0,3}:(\s|$)")
+    EMAIL_ADDRESS_REGEX = re.compile(r"[\w.+'-]+@[\w-]+(\.[\w-]+)+")
     # Header keywords specific enough to strip when a single header line opens the body. The short keywords in
     # ``HEADER_REGEX`` (e.g. ``A:``, ``De:``, ``To:``) can open the customer's own text, so they are excluded.
     SINGLE_HEADER_REGEX = re.compile(r"^(\*+)?(From|Sent|Subject)\*?:")
@@ -283,7 +287,10 @@ class EmailMessage(object):
         sets ``self.text`` to the content that follows so the reverse-scan algorithm sees only
         the reply rather than marking it hidden because headers appear "before" it in reverse.
 
-        Lines matching ``EXTRA_HEADER_REGEX`` (``Date:``, ``Cc:``, ...) also belong to the block.
+        Lines matching ``EXTRA_HEADER_REGEX`` (``Date:``, ``Cc:``, ...) also belong to the block. A custom ``Label:``
+        line or a wrapped address-list line belongs to it only when a recognised header line follows it with no blank
+        line between, so nested header blocks are stripped together while such a line below the block stays in the
+        reply.
         To avoid eating a genuine reply whose first line merely starts with a word that
         ``HEADER_REGEX`` also matches (e.g. "A", "De", "To"), the block is only stripped when it
         is unambiguous: either it contains **two or more** stacked header lines, or its first
@@ -299,13 +306,19 @@ class EmailMessage(object):
 
         header_count = 0
         content_start = first_index
+        in_continuation = False
         for index in range(first_index, len(lines)):
             stripped = lines[index].strip()
             if not stripped:
+                if in_continuation:
+                    break  # A custom label or address line followed by a gap is reply text, not part of the block.
                 continue  # Blank line separating header lines — keep scanning.
             if self.HEADER_REGEX.match(stripped) or self.EXTRA_HEADER_REGEX.match(stripped):
                 header_count += 1
                 content_start = index + 1
+                in_continuation = False
+            elif self._may_continue_header_block(stripped):
+                in_continuation = True
             else:
                 break  # First non-header, non-blank line — the reply starts here.
 
@@ -317,6 +330,18 @@ class EmailMessage(object):
 
         if 0 < content_start < len(lines):
             self.text = '\n'.join(lines[content_start:])
+
+    def _may_continue_header_block(self, line: str) -> bool:
+        """
+        Whether a line that is not a recognised header could still be part of a header block: a short custom
+        ``Label:`` field, or a wrapped address-list line with an email address and no colon.
+
+        :param line: The stripped line to check.
+        :return: True if the line may belong to the header block.
+        """
+        if self.HEADER_LABEL_REGEX.match(line):
+            return True
+        return ':' not in line and self.EMAIL_ADDRESS_REGEX.search(line) is not None
 
     def read(self):
         """ Creates new fragment for each line

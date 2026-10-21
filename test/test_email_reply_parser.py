@@ -553,6 +553,40 @@ class EmailMessageTest(unittest.TestCase):
                 for boundary in ('From:', 'Subject:', 'wrote:', '____', '----', 'Sent from Outlook'):
                     assert boundary not in body, body
 
+    def test_nested_forward_header_block_with_non_standard_lines_stripped(self):
+        """
+        Tests that a forward of a forward is reduced to its content when the back-to-back header blocks contain lines
+        that are not standard headers (a custom ``Ref ID:`` field, a wrapped ``Cc:`` address list).
+        """
+        message = self.get_email('nested_forward_header_block')
+        body = EmailReplyParser.cut_off_at_signature(message.text, include=True, word_limit=None)
+
+        assert body.startswith("Hello,\n\nI have sent my employer's details twice now"), body
+        assert body.endswith('Jane Example'), body
+        for header in ('Ref ID:', 'Importance:', 'agent.desk@example.com', 'awaiting your employer'):
+            assert header not in body, body
+
+    def test_header_like_line_after_header_block_preserved(self):
+        """
+        Tests that a ``Label:`` line or an email address directly below a header block is kept as reply text, since
+        only lines with a recognised header below them are treated as part of the block.
+        """
+        for first_reply_line in ('Move-in date: next Friday', 'Please reply to jane.example@example.com'):
+            with self.subTest(first_reply_line=first_reply_line):
+                text = ('From: Jane Example <jane.example@example.com>\nSubject: Keys\n' + first_reply_line
+                        + '\nWhere should I collect the keys?\n')
+                self.assertEqual(first_reply_line + '\nWhere should I collect the keys?',
+                                 EmailReplyParser.parse_reply(text).strip())
+
+    def test_header_like_reply_line_above_quoted_headers_preserved(self):
+        """
+        Tests that a ``Label:`` reply line separated by a blank line from the quoted headers below it is kept rather
+        than absorbed into the header block above it.
+        """
+        text = ('Subject: Keys\n\nCollection time: 10am works for me\n\n'
+                'From: Lettings Team <lettings@example.com>\nSent: Monday, 3 August 2026 09:15\n\nCan you do 10am?\n')
+        self.assertEqual('Collection time: 10am works for me', EmailReplyParser.parse_reply(text).strip())
+
     def test_forward_without_new_text_still_cuts_older_thread(self):
         """
         Tests that only the first forwarded message is kept when it carries an older quoted thread of its own.
