@@ -268,7 +268,7 @@ class EmailMessage(object):
         self.found_visible = False
         self.own_domains = tuple(domain.strip().lower() for domain in own_domains or () if domain.strip())
 
-    def _strip_contentless_preamble(self) -> None:
+    def _strip_contentless_preamble(self) -> bool:
         """
         Handle forwards and quoted replies sent with no new text, where the quoted or forwarded message is the only
         content. When everything above the first quote boundary is blank, a divider line or a "Sent from ..." device
@@ -277,8 +277,11 @@ class EmailMessage(object):
         The boundary is either a ``MULTI_QUOTE_HDR_REGEX`` marker (e.g. ``On ... wrote:``), which is removed here, or
         a header block, which ``_strip_leading_header_block`` then removes. If anything else precedes the boundary
         the method is a no-op, so a reply written above the quote is still the only part kept. It is also a no-op when
-        the boundary names a sender in ``own_domains``, so the receiving side's own earlier message is not passed off
-        as the sender's reply.
+        the boundary, including a header block at the very start of the body, names a sender in ``own_domains``, so
+        the receiving side's own earlier message is not passed off as the sender's reply.
+
+        :return: True if the boundary names a sender in ``own_domains``, in which case the header block must be
+        stripped with the original rules so the quoted message is not kept by them either.
         """
         lines = self.text.split('\n')
         index = 0
@@ -286,21 +289,23 @@ class EmailMessage(object):
                                       or self.SENT_FROM_DEVICE_REGEX.match(lines[index].strip())):
             index += 1
         if index == len(lines):
-            return
+            return False
 
         remainder = '\n'.join(lines[index:]).lstrip()
         marker = self.MULTI_QUOTE_HDR_REGEX.match(remainder)
         if marker:
             quoted_text = remainder[marker.end():]
-        elif index > 0 and self.HEADER_REGEX.match(remainder):
+        elif self.HEADER_REGEX.match(remainder) or self.EXTRA_HEADER_REGEX.match(remainder):
             quoted_text = remainder
         else:
-            return
+            return False
 
         sender = self._quoted_sender(marker.group(0) if marker else '', quoted_text)
         if sender is not None and self._is_own_address(sender):
-            return
-        self.text = quoted_text
+            return True
+        if marker or (index > 0 and self.HEADER_REGEX.match(remainder)):
+            self.text = quoted_text
+        return False
 
     def _quoted_sender(self, marker_text: str, quoted_text: str):
         """
@@ -337,7 +342,7 @@ class EmailMessage(object):
         domain = address.rsplit('@', 1)[-1].lower()
         return any(domain == own_domain or domain.endswith('.' + own_domain) for own_domain in self.own_domains)
 
-    def _strip_leading_header_block(self) -> None:
+    def _strip_leading_header_block(self, original_rules: bool = False) -> None:
         """
         Handle "bottom-posting" emails where the quoted-message headers (e.g. ``**Von:**``,
         ``**Gesendet:**``, ``**An:**``, ``**Betreff:**`` in German Outlook) appear at the very
@@ -359,6 +364,9 @@ class EmailMessage(object):
         ``SINGLE_HEADER_REGEX`` (e.g. a lone ``Subject:`` line above the reply).
 
         If the body does **not** start with such a block the method is a no-op.
+
+        :param original_rules: Recognise only ``HEADER_REGEX`` lines and accept a lone header only in the bold form,
+        ignoring the extra header, custom label and single-header rules above.
         """
         lines = self.text.split('\n')
         first_index = next((index for index, line in enumerate(lines) if line.strip()), None)
@@ -374,18 +382,18 @@ class EmailMessage(object):
                 if in_continuation:
                     break  # A custom label or address line followed by a gap is reply text, not part of the block.
                 continue  # Blank line separating header lines — keep scanning.
-            if self.HEADER_REGEX.match(stripped) or self.EXTRA_HEADER_REGEX.match(stripped):
+            if self.HEADER_REGEX.match(stripped) or (not original_rules and self.EXTRA_HEADER_REGEX.match(stripped)):
                 header_count += 1
                 content_start = index + 1
                 in_continuation = False
-            elif self._may_continue_header_block(stripped):
+            elif not original_rules and self._may_continue_header_block(stripped):
                 in_continuation = True
             else:
                 break  # First non-header, non-blank line — the reply starts here.
 
         first_header = lines[first_index].strip()
         first_header_is_unambiguous = (self.BOLD_HEADER_REGEX.match(first_header) is not None
-                                       or self.SINGLE_HEADER_REGEX.match(first_header) is not None)
+                                       or (not original_rules and self.SINGLE_HEADER_REGEX.match(first_header) is not None))
         if header_count < 2 and not first_header_is_unambiguous:
             return
 
@@ -414,12 +422,12 @@ class EmailMessage(object):
         self.found_visible = False
 
         # When nothing precedes the first quote boundary, the quoted or forwarded message is the content.
-        self._strip_contentless_preamble()
+        quoted_sender_is_own = self._strip_contentless_preamble()
 
         # Strip a leading quoted-header block produced by bottom-posting email clients
         # (e.g. German Outlook where Von/Gesendet/An/Betreff appear at the top and the
         # customer's reply follows below).
-        self._strip_leading_header_block()
+        self._strip_leading_header_block(original_rules=quoted_sender_is_own)
 
         is_multi_quote_header = self.MULTI_QUOTE_HDR_REGEX.search(self.text.strip())
         if is_multi_quote_header:

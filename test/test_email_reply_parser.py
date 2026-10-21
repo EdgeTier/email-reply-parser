@@ -666,6 +666,30 @@ class EmailMessageTest(unittest.TestCase):
                                  EmailReplyParser.cut_off_at_signature(text, own_domains=['other.example']))
                 self.assertEqual('', EmailReplyParser.cut_off_at_signature(text, own_domains=['company.example']))
 
+    def test_own_domain_header_block_at_start_not_kept(self):
+        """
+        Tests that a header block from one of ``own_domains`` opening the body, directly or below blank lines only, is
+        read with the original header-block rules, so its message is not kept as the reply.
+        """
+        header_block = ('From: Lettings Team <lettings@company.example>\nDate: Mon, 3 Aug 2026\nSubject: Deposit\n\n'
+                        'Your deposit has been returned.\n')
+        for preamble in ('', '\n\n'):
+            with self.subTest(preamble=preamble):
+                self.assertEqual('', EmailReplyParser.parse_reply(preamble + header_block,
+                                                                  own_domains=['company.example']).strip())
+
+    def test_header_block_at_start_kept_unless_own_domain(self):
+        """
+        Tests that a header block opening the body is still stripped and its message kept when the sender is outside
+        ``own_domains`` or ``own_domains`` is not set.
+        """
+        text = ('From: Lettings Team <lettings@company.example>\nDate: Mon, 3 Aug 2026\nSubject: Deposit\n\n'
+                'Your deposit has been returned.\n')
+        for own_domains in (['other.example'], None):
+            with self.subTest(own_domains=own_domains):
+                self.assertEqual('Your deposit has been returned.',
+                                 EmailReplyParser.parse_reply(text, own_domains=own_domains).strip())
+
     def test_own_domains_unset_keeps_quoted_message(self):
         """
         Tests that without ``own_domains`` a quoted message with no new text above it is kept whoever sent it.
