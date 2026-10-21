@@ -173,8 +173,9 @@ class EmailMessage(object):
     # quoted message (e.g. ``Date:`` in Gmail forwards, ``Cc:`` in Outlook replies).
     EXTRA_HEADER_REGEX = re.compile(r"^(\*+)?(Date|Cc|Bcc|Received|Reply-To|Importance)\*?:")
     # Lines that may sit inside a header block without being recognised headers: a short custom ``Label:`` field
-    # (e.g. ``Ref ID: 123``) or a wrapped continuation of a ``To:``/``Cc:`` address list.
-    HEADER_LABEL_REGEX = re.compile(r"^[A-Z][\w-]*( [\w-]+){0,3}:(\s|$)")
+    # (e.g. ``Ref ID: 123`` or ``Ref ID:123``) or a wrapped continuation of a ``To:``/``Cc:`` address list. A colon
+    # followed by ``//`` is a URL scheme, not a label.
+    HEADER_LABEL_REGEX = re.compile(r"^[A-Z][\w-]*( [\w-]+){0,3}:(?!//)")
     EMAIL_ADDRESS_REGEX = re.compile(r"[\w.+'-]+@[\w-]+(\.[\w-]+)+")
     # Header keywords specific enough to strip when a single header line opens the body. The short keywords in
     # ``HEADER_REGEX`` (e.g. ``A:``, ``De:``, ``To:``) can open the customer's own text, so they are excluded.

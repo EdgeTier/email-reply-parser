@@ -561,7 +561,7 @@ class EmailMessageTest(unittest.TestCase):
         message = self.get_email('nested_forward_header_block')
         body = EmailReplyParser.cut_off_at_signature(message.text, include=True, word_limit=None)
 
-        assert body.startswith("Hello,\n\nI have sent my employer's details twice now"), body
+        assert body.startswith("Dear Referencing Team,\n\nI have sent my employer's details twice now"), body
         assert body.endswith('Jane Example'), body
         for header in ('Ref ID:', 'Importance:', 'agent.desk@example.com', 'awaiting your employer'):
             assert header not in body, body
@@ -571,7 +571,8 @@ class EmailMessageTest(unittest.TestCase):
         Tests that a ``Label:`` line or an email address directly below a header block is kept as reply text, since
         only lines with a recognised header below them are treated as part of the block.
         """
-        for first_reply_line in ('Move-in date: next Friday', 'Please reply to jane.example@example.com'):
+        for first_reply_line in ('Move-in date: next Friday', 'Viewing at 10:30 suits me',
+                                 'Please reply to jane.example@example.com'):
             with self.subTest(first_reply_line=first_reply_line):
                 text = ('From: Jane Example <jane.example@example.com>\nSubject: Keys\n' + first_reply_line
                         + '\nWhere should I collect the keys?\n')

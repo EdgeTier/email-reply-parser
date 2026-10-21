@@ -1,18 +1,30 @@
 ---------- Forwarded message ---------
 From: Jane Example <jane.example@example.com>
-Date: Thu, 6 Aug 2026 at 14:02
-Subject: RE: Reference check for 1 Example Street --
-Example Ref ID: REF0001234
-To: <referencing@example.com>
-From: Jane Example <jane.example@example.com>
-Sent: 06 August 2026 13:55
-To: Referencing Team <referencing@example.com>
-Cc: John Sample <john.sample@example.com>; Lettings Team <lettings@example.com>;
-agent.desk@example.com
-Subject: RE: Reference check for 1 Example Street --
-Example Ref ID: REF0001234
-Importance: High
-Hello,
+Date: Thursday, 6 August 2026, 14:02:11 +0100
+Subject: FW: Unit 1, Example Street, 12 Sample Road Testville, T1 1AA----
+Example Ref ID:00001234 -- ab cde
+To: "referencing@example.com" <referencing@example.com>
+
+
+
+
+
+
+
+
+
+*From:* Jane Example
+*Sent:* 06 August 2026 13:55
+*To:* lettings@example.com; The Sample Lettings Co <lettings.desk0001@example.com>
+*Cc:* Office-Management <office.team@example.com>; Agent Desk <
+agent.desk@example.com>
+*Subject:* FW: Unit 1, Example Street, 12 Sample Road Testville, T1 1AA----
+Example Ref ID:00001234 -- ab cde
+*Importance:* High
+
+
+
+Dear Referencing Team,
 
 I have sent my employer's details twice now and the reference still shows as outstanding. My move-in date is next Friday, so please could someone confirm today what is missing?
 
