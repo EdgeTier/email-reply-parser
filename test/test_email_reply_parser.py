@@ -647,6 +647,60 @@ class EmailMessageTest(unittest.TestCase):
                 self.assertEqual(text, message.text)
 
 
+    def test_own_domain_quoted_message_without_new_text_not_kept(self):
+        """
+        Tests that a quoted message sent from one of ``own_domains`` (or a subdomain of one) is not kept as the reply
+        when no new text precedes it, so the receiving side's own message is not passed off as the sender's.
+        """
+        texts = [
+            ('Sent from my iPhone\n\nOn Mon, 3 Aug 2026 at 09:15, Support <help@company.example> wrote:\n'
+             'Your deposit has been returned.\n'),
+            ('________________________________\nFrom: Agent <agent@mail.company.example>\n'
+             'Sent: Monday, 3 August 2026 09:15\nSubject: Deposit\n\nYour deposit has been returned.\n'),
+            ('________________________________\n*From:* Agent <agent@Company.Example>\n'
+             '*Sent:* Monday, 3 August 2026 09:15\n\nYour deposit has been returned.\n'),
+        ]
+        for text in texts:
+            with self.subTest(text=text):
+                self.assertEqual('Your deposit has been returned.',
+                                 EmailReplyParser.cut_off_at_signature(text, own_domains=['other.example']))
+                self.assertEqual('', EmailReplyParser.cut_off_at_signature(text, own_domains=['company.example']))
+
+    def test_own_domains_unset_keeps_quoted_message(self):
+        """
+        Tests that without ``own_domains`` a quoted message with no new text above it is kept whoever sent it.
+        """
+        text = ('Sent from my iPhone\n\nOn Mon, 3 Aug 2026 at 09:15, Support <help@company.example> wrote:\n'
+                'Your deposit has been returned.\n')
+        for own_domains in (None, []):
+            with self.subTest(own_domains=own_domains):
+                self.assertEqual('Your deposit has been returned.',
+                                 EmailReplyParser.parse_reply(text, own_domains=own_domains).strip())
+
+    def test_third_party_quoted_message_kept_with_own_domains(self):
+        """
+        Tests that a forwarded message from a sender outside ``own_domains`` is still kept, including when the
+        domain only ends with an own domain's name rather than being a subdomain of it.
+        """
+        for sender in ('jane@example.com', 'jane@notcompany.example'):
+            with self.subTest(sender=sender):
+                text = ('________________________________\nFrom: Jane <' + sender + '>\n'
+                        'Sent: Monday, 3 August 2026 09:15\nSubject: Boiler\n\nThe boiler has stopped working.\n')
+                self.assertEqual('The boiler has stopped working.',
+                                 EmailReplyParser.parse_reply(text, own_domains=['company.example']).strip())
+
+    def test_top_posted_reply_unchanged_with_own_domains(self):
+        """
+        Tests that a reply written above a quote from ``own_domains`` is kept as before.
+        """
+        text = ('Thanks, that works for me.\n\nOn Mon, 3 Aug 2026 at 09:15, Support <help@company.example> wrote:\n'
+                'Can you do Tuesday?\n')
+        self.assertEqual('Thanks, that works for me.',
+                         EmailReplyParser.parse_reply(text, own_domains=['company.example']))
+        self.assertEqual('Thanks, that works for me.',
+                         EmailReplyParser.cut_off_at_signature(text, own_domains=['company.example']))
+
+
 if __name__ == '__main__':
     unittest.main()
 

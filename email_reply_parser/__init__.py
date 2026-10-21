@@ -27,27 +27,31 @@ class EmailReplyParser(object):
     """
 
     @staticmethod
-    def read(text):
-        """ Factory method that splits email into list of fragments
-
-            text - A string email body
-
-            Returns an EmailMessage instance
+    def read(text, *, own_domains=None):
         """
-        return EmailMessage(text).read()
+        Factory method that splits email into list of fragments.
+
+        :param text: A string email body.
+        :param own_domains: Sender email domains belonging to the receiving side (e.g. the support mailbox). A quoted
+        message sent from one of these domains is never kept as the reply when no new text precedes it.
+        :return: An EmailMessage instance.
+        """
+        return EmailMessage(text, own_domains=own_domains).read()
 
     @staticmethod
-    def parse_reply(text):
-        """ Provides the reply portion of email.
-
-            text - A string email body
-
-            Returns reply body message
+    def parse_reply(text, *, own_domains=None):
         """
-        return EmailReplyParser.read(text).reply
+        Provides the reply portion of email.
+
+        :param text: A string email body.
+        :param own_domains: Sender email domains belonging to the receiving side; see ``read``.
+        :return: The reply body message.
+        """
+        return EmailReplyParser.read(text, own_domains=own_domains).reply
 
     @staticmethod
-    def cut_off_at_signature(body: str, include: Optional[bool] = True, word_limit: Optional[int] = 1000):
+    def cut_off_at_signature(body: str, include: Optional[bool] = True, word_limit: Optional[int] = 1000, *,
+                             own_domains=None):
         """
         Remove the signature section from an email, and use the email Reply Parser to try to remove any
         "thread" content.
@@ -58,8 +62,9 @@ class EmailReplyParser(object):
         :param word_limit: If we set the word-limit to None the string will not be split and line breaks will
         be retained. If a word-limit is set, the email will be cut-off after that limit if a signature is not
         found before that point. Default = 100.
+        :param own_domains: Sender email domains belonging to the receiving side; see ``EmailReplyParser.read``.
         """
-        parsed_email = EmailReplyParser.parse_reply(body)
+        parsed_email = EmailReplyParser.parse_reply(body, own_domains=own_domains)
         cleaned_email = EmailMessage.clean_email_content(parsed_email, include, word_limit)
         return cleaned_email.strip()
 
@@ -180,6 +185,11 @@ class EmailMessage(object):
     # Header keywords specific enough to strip when a single header line opens the body. The short keywords in
     # ``HEADER_REGEX`` (e.g. ``A:``, ``De:``, ``To:``) can open the customer's own text, so they are excluded.
     SINGLE_HEADER_REGEX = re.compile(r"^(\*+)?(From|Sent|Subject)\*?:")
+    # The sender line of a header block, in the forms ``From:``, ``*From:*`` and ``**From:**``, including the localised
+    # sender keywords that ``HEADER_REGEX`` recognises.
+    FROM_HEADER_REGEX = re.compile(
+        r"^\**(From|Da|Från|Fran|Von|Lähettäjä|Lahettaja|Fra|De|De la|Από το|من)\**:"
+    )
     _MULTI_QUOTE_HDR_REGEX = (
         r"(On (.{,120})\n?(.{,50})?wrote(\s+)?:"  # English
         r"|Il (.{,120})\n?(.{,50})?ha(\s+)?:"  # Italian
@@ -246,11 +256,17 @@ class EmailMessage(object):
         "CAUTION:This message is from an EXTERNAL SENDER - be CAUTIOUS, Do NOT Click any links or Open any attachments if you were not expecting them."
     ]
 
-    def __init__(self, text):
+    def __init__(self, text, *, own_domains=None):
+        """
+        :param text: A string email body.
+        :param own_domains: Sender email domains belonging to the receiving side. A quoted message sent from one of
+        these domains, or a subdomain of one, is never kept as the reply when no new text precedes it.
+        """
         self.fragments = []
         self.fragment = None
         self.text = text.replace('\r\n', '\n')
         self.found_visible = False
+        self.own_domains = tuple(domain.strip().lower() for domain in own_domains or () if domain.strip())
 
     def _strip_contentless_preamble(self) -> None:
         """
@@ -260,7 +276,9 @@ class EmailMessage(object):
 
         The boundary is either a ``MULTI_QUOTE_HDR_REGEX`` marker (e.g. ``On ... wrote:``), which is removed here, or
         a header block, which ``_strip_leading_header_block`` then removes. If anything else precedes the boundary
-        the method is a no-op, so a reply written above the quote is still the only part kept.
+        the method is a no-op, so a reply written above the quote is still the only part kept. It is also a no-op when
+        the boundary names a sender in ``own_domains``, so the receiving side's own earlier message is not passed off
+        as the sender's reply.
         """
         lines = self.text.split('\n')
         index = 0
@@ -273,9 +291,51 @@ class EmailMessage(object):
         remainder = '\n'.join(lines[index:]).lstrip()
         marker = self.MULTI_QUOTE_HDR_REGEX.match(remainder)
         if marker:
-            self.text = remainder[marker.end():]
+            quoted_text = remainder[marker.end():]
         elif index > 0 and self.HEADER_REGEX.match(remainder):
-            self.text = remainder
+            quoted_text = remainder
+        else:
+            return
+
+        sender = self._quoted_sender(marker.group(0) if marker else '', quoted_text)
+        if sender is not None and self._is_own_address(sender):
+            return
+        self.text = quoted_text
+
+    def _quoted_sender(self, marker_text: str, quoted_text: str):
+        """
+        Find the sender address of a quoted message from its boundary: the address in the quote marker (e.g. ``On ...
+        <name> <address> wrote:``), otherwise the first ``From:`` line of the header block opening the quoted text.
+
+        :param marker_text: The quote marker that opened the boundary, or an empty string if there was none.
+        :param quoted_text: The text following the marker, which may open with a header block.
+        :return: The sender's email address, or None if the boundary does not name one.
+        """
+        address = self.EMAIL_ADDRESS_REGEX.search(marker_text)
+        if address:
+            return address.group(0)
+
+        for line in quoted_text.split('\n'):
+            stripped = line.strip()
+            if not stripped:
+                continue
+            if self.FROM_HEADER_REGEX.match(stripped):
+                address = self.EMAIL_ADDRESS_REGEX.search(stripped)
+                return address.group(0) if address else None
+            if not (self.HEADER_REGEX.match(stripped) or self.EXTRA_HEADER_REGEX.match(stripped)
+                    or self._may_continue_header_block(stripped)):
+                return None
+        return None
+
+    def _is_own_address(self, address: str) -> bool:
+        """
+        Whether an email address belongs to one of ``own_domains`` or a subdomain of one.
+
+        :param address: The email address to check.
+        :return: True if the address's domain is one of ``own_domains`` or a subdomain of one.
+        """
+        domain = address.rsplit('@', 1)[-1].lower()
+        return any(domain == own_domain or domain.endswith('.' + own_domain) for own_domain in self.own_domains)
 
     def _strip_leading_header_block(self) -> None:
         """
