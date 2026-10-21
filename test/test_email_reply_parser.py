@@ -642,10 +642,9 @@ class EmailMessageTest(unittest.TestCase):
             with self.subTest(first_line=first_line):
                 text = first_line + '\n\nThe rest of my reply.'
                 message = EmailMessage(text)
-                message._strip_contentless_preamble()
+                message._strip_contentless_preamble_unless_own_sender()
                 message._strip_leading_header_block()
                 self.assertEqual(text, message.text)
-
 
     def test_own_domain_quoted_message_without_new_text_not_kept(self):
         """
@@ -723,6 +722,73 @@ class EmailMessageTest(unittest.TestCase):
                          EmailReplyParser.parse_reply(text, own_domains=['company.example']))
         self.assertEqual('Thanks, that works for me.',
                          EmailReplyParser.cut_off_at_signature(text, own_domains=['company.example']))
+
+    def test_angle_quoted_message_without_new_text_stays_blank(self):
+        """
+        Tests that a ``>``-quoted message with no new text above it is not kept, since that is the usual shape of a
+        reply quoting the previous message.
+        """
+        quote = ('On Mon, 3 Aug 2026 at 09:15, Jane Example <jane@example.com> wrote:\n> Hello,\n'
+                 '> The boiler has stopped working.\n')
+        for preamble in ('', 'Sent from my iPhone\n\n'):
+            with self.subTest(preamble=preamble):
+                self.assertEqual('', EmailReplyParser.cut_off_at_signature(preamble + quote))
+
+    def test_sender_without_address_treated_as_own_with_own_domains(self):
+        """
+        Tests that a quoted message whose sender line carries no email address is treated as the receiving side's own
+        when ``own_domains`` is set, and is still kept when it is not.
+        """
+        body = 'Your deposit has been returned.\n'
+        texts = [
+            ('________________________________\nFrom: Lettings Team\nSent: Monday, 3 August 2026 09:15\n'
+             'Subject: Deposit\n\n' + body),
+            '________________________________\n*From:* Lettings Team\n*Sent:* Monday, 3 August 2026 09:15\n\n' + body,
+            'From: Lettings Team\nDate: Mon, 3 Aug 2026\nSubject: Deposit\n\n' + body,
+            'Sent from my iPhone\n\nOn Mon, 3 Aug 2026 at 09:15, Lettings Team wrote:\n' + body,
+        ]
+        for text in texts:
+            with self.subTest(text=text):
+                self.assertEqual('', EmailReplyParser.cut_off_at_signature(text, own_domains=['company.example']))
+                self.assertEqual('Your deposit has been returned.', EmailReplyParser.cut_off_at_signature(text))
+
+    def test_boundary_without_sender_line_kept_with_own_domains(self):
+        """
+        Tests that ``own_domains`` does not affect a boundary with no sender line: a divider above a header block with
+        no ``From:`` line, or a lone ``Subject:`` line above a reply.
+        """
+        text = ('Sent from my iPhone\n\n-----Original Message-----\nSent: Monday, 3 August 2026 09:15\n'
+                'Subject: Deposit\n\nYour deposit has been returned.\n')
+        self.assertEqual('Your deposit has been returned.',
+                         EmailReplyParser.cut_off_at_signature(text, own_domains=['company.example']))
+
+        message = self.get_email('subject_line_reply')
+        body = EmailReplyParser.cut_off_at_signature(message.text, include=True, word_limit=None,
+                                                     own_domains=['company.example'])
+        assert body.startswith('Hello,\n\nI have uploaded the guarantor form'), body
+        assert body.endswith('Jane Example'), body
+
+    def test_own_domains_normalised(self):
+        """
+        Tests that ``own_domains`` accepts a single domain string, skips ``None`` and empty entries, and ignores a
+        leading ``@``, surrounding whitespace and letter case.
+        """
+        cases = [
+            ('company.example', ('company.example',)),
+            (['company.example', None, '', '  '], ('company.example',)),
+            ([' @Company.Example ', '@ other.example'], ('company.example', 'other.example')),
+            ('@company.example', ('company.example',)),
+            (None, ()),
+        ]
+        for own_domains, expected in cases:
+            with self.subTest(own_domains=own_domains):
+                self.assertEqual(expected, EmailMessage('', own_domains=own_domains).own_domains)
+
+        text = ('________________________________\nFrom: Agent <agent@company.example>\n'
+                'Sent: Monday, 3 August 2026 09:15\n\nYour deposit has been returned.\n')
+        for own_domains in ('company.example', ' @company.example ', [None, '@company.example']):
+            with self.subTest(own_domains=own_domains):
+                self.assertEqual('', EmailReplyParser.cut_off_at_signature(text, own_domains=own_domains))
 
 
 if __name__ == '__main__':

@@ -32,8 +32,9 @@ class EmailReplyParser(object):
         Factory method that splits email into list of fragments.
 
         :param text: A string email body.
-        :param own_domains: Sender email domains belonging to the receiving side (e.g. the support mailbox). A quoted
-        message sent from one of these domains is never kept as the reply when no new text precedes it.
+        :param own_domains: A sender email domain, or a list of them, belonging to the receiving side (e.g. the support
+        mailbox). A quoted message sent from one of these domains, or whose sender line carries no email address, is
+        never kept as the reply when no new text precedes it.
         :return: An EmailMessage instance.
         """
         return EmailMessage(text, own_domains=own_domains).read()
@@ -258,17 +259,40 @@ class EmailMessage(object):
 
     def __init__(self, text, *, own_domains=None):
         """
+        Prepare an email body for parsing.
+
         :param text: A string email body.
-        :param own_domains: Sender email domains belonging to the receiving side. A quoted message sent from one of
-        these domains, or a subdomain of one, is never kept as the reply when no new text precedes it.
+        :param own_domains: A sender email domain, or a list of them, belonging to the receiving side. A quoted message
+        sent from one of these domains or a subdomain of one, or whose sender line carries no email address, is never
+        kept as the reply when no new text precedes it.
         """
         self.fragments = []
         self.fragment = None
         self.text = text.replace('\r\n', '\n')
         self.found_visible = False
-        self.own_domains = tuple(domain.strip().lower() for domain in own_domains or () if domain.strip())
+        self.own_domains = self._normalise_own_domains(own_domains)
 
-    def _strip_contentless_preamble(self) -> bool:
+    @staticmethod
+    def _normalise_own_domains(own_domains) -> tuple:
+        """
+        Normalise ``own_domains`` to lower-case domains, accepting a single domain string, skipping ``None`` and empty
+        entries, and dropping a leading ``@`` and surrounding whitespace from each entry.
+
+        :param own_domains: A domain string, an iterable of domain strings, or None.
+        :return: The normalised domains.
+        """
+        if isinstance(own_domains, str):
+            own_domains = [own_domains]
+        normalised = []
+        for domain in own_domains or ():
+            domain = (domain or '').strip()
+            if domain.startswith('@'):
+                domain = domain[1:].strip()
+            if domain:
+                normalised.append(domain.lower())
+        return tuple(normalised)
+
+    def _strip_contentless_preamble_unless_own_sender(self) -> bool:
         """
         Handle forwards and quoted replies sent with no new text, where the quoted or forwarded message is the only
         content. When everything above the first quote boundary is blank, a divider line or a "Sent from ..." device
@@ -277,11 +301,13 @@ class EmailMessage(object):
         The boundary is either a ``MULTI_QUOTE_HDR_REGEX`` marker (e.g. ``On ... wrote:``), which is removed here, or
         a header block, which ``_strip_leading_header_block`` then removes. If anything else precedes the boundary
         the method is a no-op, so a reply written above the quote is still the only part kept. It is also a no-op when
-        the boundary, including a header block at the very start of the body, names a sender in ``own_domains``, so
-        the receiving side's own earlier message is not passed off as the sender's reply.
+        the boundary, including a header block at the very start of the body, names a sender that ``_is_own_sender``
+        treats as the receiving side's, so that side's earlier message is not passed off as the sender's reply. Lines
+        quoted with ``>`` below the boundary are deliberately not kept: that is the usual shape of a reply quoting the
+        previous message, which is often the receiving side's own.
 
-        :return: True if the boundary names a sender in ``own_domains``, in which case the header block must be
-        stripped with the original rules so the quoted message is not kept by them either.
+        :return: True if the boundary names a sender treated as the receiving side's, in which case the header block
+        must be stripped with the original rules so the quoted message is not kept by them either.
         """
         lines = self.text.split('\n')
         index = 0
@@ -300,46 +326,53 @@ class EmailMessage(object):
         else:
             return False
 
-        sender = self._quoted_sender(marker.group(0) if marker else '', quoted_text)
-        if sender is not None and self._is_own_address(sender):
+        sender_line = self._quoted_sender_line(marker.group(0) if marker else '', quoted_text)
+        if sender_line and self._is_own_sender(sender_line):
             return True
         if marker or (index > 0 and self.HEADER_REGEX.match(remainder)):
             self.text = quoted_text
         return False
 
-    def _quoted_sender(self, marker_text: str, quoted_text: str):
+    def _quoted_sender_line(self, marker_text: str, quoted_text: str) -> str:
         """
-        Find the sender address of a quoted message from its boundary: the address in the quote marker (e.g. ``On ...
-        <name> <address> wrote:``), otherwise the first ``From:`` line of the header block opening the quoted text.
+        Find the line naming the sender of a quoted message from its boundary: the quote marker if it carries an email
+        address (e.g. ``On ... <name> <address> wrote:``), otherwise the first ``From:`` line of the header block
+        opening the quoted text, otherwise the marker itself, which names the sender without an address (e.g. ``On ...
+        <name> wrote:``). Divider markers such as ``-----Original Message-----`` never reach here: they are skipped as
+        part of the preamble.
 
         :param marker_text: The quote marker that opened the boundary, or an empty string if there was none.
         :param quoted_text: The text following the marker, which may open with a header block.
-        :return: The sender's email address, or None if the boundary does not name one.
+        :return: The sender line, or an empty string if the boundary has none.
         """
-        address = self.EMAIL_ADDRESS_REGEX.search(marker_text)
-        if address:
-            return address.group(0)
+        if self.EMAIL_ADDRESS_REGEX.search(marker_text):
+            return marker_text
 
         for line in quoted_text.split('\n'):
             stripped = line.strip()
             if not stripped:
                 continue
             if self.FROM_HEADER_REGEX.match(stripped):
-                address = self.EMAIL_ADDRESS_REGEX.search(stripped)
-                return address.group(0) if address else None
+                return stripped
             if not (self.HEADER_REGEX.match(stripped) or self.EXTRA_HEADER_REGEX.match(stripped)
                     or self._may_continue_header_block(stripped)):
-                return None
-        return None
+                break
+        return marker_text.strip()
 
-    def _is_own_address(self, address: str) -> bool:
+    def _is_own_sender(self, sender_line: str) -> bool:
         """
-        Whether an email address belongs to one of ``own_domains`` or a subdomain of one.
+        Whether a sender line belongs to the receiving side: ``own_domains`` is set and the line's email address is in
+        one of them or a subdomain of one, or the line carries no email address at all.
 
-        :param address: The email address to check.
-        :return: True if the address's domain is one of ``own_domains`` or a subdomain of one.
+        :param sender_line: The line naming the sender of a quoted message.
+        :return: True if the sender is treated as one of ``own_domains``.
         """
-        domain = address.rsplit('@', 1)[-1].lower()
+        if not self.own_domains:
+            return False
+        address = self.EMAIL_ADDRESS_REGEX.search(sender_line)
+        if not address:
+            return True
+        domain = address.group(0).rsplit('@', 1)[-1].lower()
         return any(domain == own_domain or domain.endswith('.' + own_domain) for own_domain in self.own_domains)
 
     def _strip_leading_header_block(self, original_rules: bool = False) -> None:
@@ -392,8 +425,10 @@ class EmailMessage(object):
                 break  # First non-header, non-blank line — the reply starts here.
 
         first_header = lines[first_index].strip()
-        first_header_is_unambiguous = (self.BOLD_HEADER_REGEX.match(first_header) is not None
-                                       or (not original_rules and self.SINGLE_HEADER_REGEX.match(first_header) is not None))
+        first_header_is_unambiguous = (
+            self.BOLD_HEADER_REGEX.match(first_header) is not None
+            or (not original_rules and self.SINGLE_HEADER_REGEX.match(first_header) is not None)
+        )
         if header_count < 2 and not first_header_is_unambiguous:
             return
 
@@ -422,7 +457,7 @@ class EmailMessage(object):
         self.found_visible = False
 
         # When nothing precedes the first quote boundary, the quoted or forwarded message is the content.
-        quoted_sender_is_own = self._strip_contentless_preamble()
+        quoted_sender_is_own = self._strip_contentless_preamble_unless_own_sender()
 
         # Strip a leading quoted-header block produced by bottom-posting email clients
         # (e.g. German Outlook where Von/Gesendet/An/Betreff appear at the top and the
