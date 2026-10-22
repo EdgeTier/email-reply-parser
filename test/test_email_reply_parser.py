@@ -792,6 +792,33 @@ class EmailMessageTest(unittest.TestCase):
         assert body.startswith('Hello,\n\nI have uploaded the guarantor form'), body
         assert body.endswith('Jane Example'), body
 
+    @staticmethod
+    def forwarded_with_wrapped_sender(address):
+        """
+        Builds a forward with no new text whose ``From:`` header wraps the sender address onto the next line.
+
+        :param address: The sender email address.
+        :return: The email body.
+        """
+        return ('________________________________\nFrom: Jane Example <\n' + address + '>\n'
+                'Sent: Monday, 3 August 2026 09:15\nSubject: Boiler\n\nThe boiler has stopped working.\n')
+
+    def test_wrapped_third_party_sender_kept_with_own_domains(self):
+        """
+        Tests that a forward whose ``From:`` address wraps onto the next line is read with that address, so a sender
+        outside ``own_domains`` is kept.
+        """
+        text = self.forwarded_with_wrapped_sender('jane@example.com')
+        self.assertEqual('The boiler has stopped working.',
+                         EmailReplyParser.cut_off_at_signature(text, own_domains=['company.example']))
+
+    def test_wrapped_own_domain_sender_not_kept(self):
+        """
+        Tests that a forward whose ``From:`` address wraps onto the next line and is in ``own_domains`` is not kept.
+        """
+        text = self.forwarded_with_wrapped_sender('lettings@company.example')
+        self.assertEqual('', EmailReplyParser.cut_off_at_signature(text, own_domains=['company.example']))
+
     def test_own_domains_normalised(self):
         """
         Tests that ``own_domains`` accepts a single domain string, skips ``None`` and empty entries, and ignores a

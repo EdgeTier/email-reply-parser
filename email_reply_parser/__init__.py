@@ -88,6 +88,7 @@ class EmailReplyParser(object):
         be retained. If a word-limit is set, the email will be cut-off after that limit if a signature is not
         found before that point. Default = 100.
         :param own_domains: Sender email domains belonging to the receiving side; see ``EmailReplyParser.read``.
+        :return: The cleaned reply body, cut off at the signature and stripped of surrounding whitespace.
         """
         parsed_email = EmailReplyParser.parse_reply(body, own_domains=own_domains)
         cleaned_email = EmailMessage.clean_email_content(parsed_email, include, word_limit)
@@ -103,44 +104,83 @@ class EmailReplyParser(object):
 
         :param text: A string email body.
         :return: The text below the boundary, and the first line in the boundary naming a sender (a ``From:``-style
-        header or a quote marker), or None if the boundary has none.
+        header joined with any address lines wrapped below it, or a quote marker), or None if the boundary has none.
         """
         lines = text.replace('\r\n', '\n').split('\n')
-        content_start = 0
         sender_line = None
         seen_header = False
-        in_continuation = False
         index = 0
         while index < len(lines):
             line = lines[index].strip()
-            header = EmailMessage.HEADER_REGEX.match(line)
-            if header or EmailReplyParser.EXTRA_HEADER_REGEX.match(line):
-                if sender_line is None and header and header.group(4) in EmailReplyParser.SENDER_HEADER_KEYWORDS:
-                    sender_line = line
-                seen_header, in_continuation = True, False
-                index += 1
-                content_start = index
+            block_end, block_sender_line = EmailReplyParser._consume_header_block(lines, index, seen_header)
+            if block_end > index:
+                sender_line = sender_line or block_sender_line
+                seen_header = True
+                index = block_end
                 continue
-            if seen_header and line and (EmailReplyParser.HEADER_LABEL_REGEX.match(line) or (
-                    ':' not in line and EmailReplyParser.EMAIL_ADDRESS_REGEX.search(line))):
-                in_continuation = True
-                index += 1
-                continue
-            if in_continuation:
+            if seen_header and EmailReplyParser._is_header_continuation(line):
+                # A label or address line with no header below it is body text, so the boundary ends above it.
                 break
 
             if not line or EmailReplyParser._is_divider_or_device_line(line):
                 index += 1
+                continue
+            # A quote marker may wrap onto a second line (e.g. ``On ... <address>\nwrote:``).
+            marker = EmailMessage.MULTI_QUOTE_HDR_REGEX.match('\n'.join(lines[index:index + 2]).lstrip())
+            if not marker:
+                break
+            sender_line = sender_line or marker.group(0).strip()
+            index += marker.group(0).rstrip().count('\n') + 1
+        return '\n'.join(lines[index:]), sender_line
+
+    @staticmethod
+    def _consume_header_block(lines, start: int, after_header: bool):
+        """
+        Consume one header block starting at ``start``: a run of header lines and the custom ``Label:`` or wrapped
+        address-list lines between them. A run of such lines below the last header line is not part of the block.
+
+        :param lines: The lines of the email body.
+        :param start: The index of the line to start from.
+        :param after_header: Whether a header block has already been consumed above ``start``, so that the block may
+        open with a label or address line.
+        :return: The index just below the block's last header line (``start`` if it has none), and the block's sender
+        line: its first ``From:``-style header joined with the label or address lines wrapped below it, or None.
+        """
+        block_end = start
+        sender_line = None
+        # Lines wrapped below the sender header, joined to it once the next header line shows they are in the block.
+        sender_wrap = None
+        index = start
+        while index < len(lines):
+            line = lines[index].strip()
+            header = EmailMessage.HEADER_REGEX.match(line)
+            if header or EmailReplyParser.EXTRA_HEADER_REGEX.match(line):
+                if sender_wrap:
+                    sender_line = ' '.join([sender_line] + sender_wrap)
+                sender_wrap = None
+                if sender_line is None and header and header.group(4) in EmailReplyParser.SENDER_HEADER_KEYWORDS:
+                    sender_line, sender_wrap = line, []
+                index += 1
+                block_end = index
+            elif (after_header or block_end > start) and EmailReplyParser._is_header_continuation(line):
+                if sender_wrap is not None:
+                    sender_wrap.append(line)
+                index += 1
             else:
-                # A quote marker may wrap onto a second line (e.g. ``On ... <address>\nwrote:``).
-                marker = EmailMessage.MULTI_QUOTE_HDR_REGEX.match('\n'.join(lines[index:index + 2]).lstrip())
-                if not marker:
-                    break
-                if sender_line is None:
-                    sender_line = marker.group(0).strip()
-                index += marker.group(0).rstrip().count('\n') + 1
-            content_start = index
-        return '\n'.join(lines[content_start:]), sender_line
+                break
+        return block_end, sender_line
+
+    @staticmethod
+    def _is_header_continuation(line: str) -> bool:
+        """
+        Whether a stripped line may continue a header block: a short custom ``Label:`` field, or a wrapped
+        address-list line with no colon.
+
+        :param line: The stripped line to check.
+        :return: True if the line may continue a header block.
+        """
+        return bool(line) and bool(EmailReplyParser.HEADER_LABEL_REGEX.match(line) or (
+            ':' not in line and EmailReplyParser.EMAIL_ADDRESS_REGEX.search(line)))
 
     @staticmethod
     def _is_own_sender(sender_line: str, own_domains) -> bool:
