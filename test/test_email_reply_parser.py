@@ -633,18 +633,42 @@ class EmailMessageTest(unittest.TestCase):
                 text = opening + '\n\nOn Mon, 3 Aug 2026 at 09:15, Lettings Team <lettings@example.com> wrote:\nHi\n'
                 self.assertEqual(opening, EmailReplyParser.parse_reply(text))
 
-    def test_single_short_keyword_header_line_not_stripped(self):
+    def test_single_short_keyword_header_line_does_not_blank_reply(self):
         """
-        Tests that a lone header line using a short keyword (``A:``, ``De:``, ``To:``) is left in place, since it may
-        be the customer's own text; only multi-line blocks or long-form keywords are stripped.
+        Tests that a reply opening with a header-like line using a short keyword (``A:``, ``De:``, ``To:``), which the
+        ordinary parse reads as a header hiding everything below it, still keeps the text below that line.
         """
         for first_line in ('A: yes, please go ahead', 'De: mon cote tout va bien', 'To: the lettings team'):
             with self.subTest(first_line=first_line):
                 text = first_line + '\n\nThe rest of my reply.'
-                message = EmailMessage(text)
-                message._strip_contentless_preamble_unless_own_sender()
-                message._strip_leading_header_block()
-                self.assertEqual(text, message.text)
+                self.assertEqual('The rest of my reply.', EmailReplyParser.parse_reply(text))
+
+    def test_reply_with_content_unchanged_from_ordinary_parse(self):
+        """
+        Tests that a reply the ordinary parse finds content in, including one opening with a short header word, is
+        returned exactly as the ordinary parse gives it.
+        """
+        texts = [
+            ('Thanks, that works for me.\n\n'
+             'On Mon, 3 Aug 2026 at 09:15, Lettings Team <lettings@example.com> wrote:\nHi\n'),
+            ('A quick question about my deposit.\n\n'
+             'From: Lettings Team <lettings@example.com>\nSubject: Deposit\n\nHi\n'),
+        ]
+        for text in texts:
+            with self.subTest(text=text):
+                reply = EmailReplyParser.parse_reply(text, own_domains=['example.com'])
+                self.assertEqual(text.split('\n')[0], reply)
+                self.assertEqual(EmailMessage(text).read().reply, reply)
+
+    def test_subject_line_above_forwarded_marker_keeps_forwarded_message(self):
+        """
+        Tests that a lone ``Subject:`` line directly above a forwarded-message marker, with nothing written, keeps the
+        forwarded message as the reply.
+        """
+        text = ('Subject: Fwd: Boiler\n---------- Forwarded message ---------\n'
+                'From: Jane Example <jane.example@example.com>\nDate: Wed, 5 Aug 2026 at 11:20\nSubject: Boiler\n\n'
+                'The boiler has stopped working again.\n')
+        self.assertEqual('The boiler has stopped working again.', EmailReplyParser.parse_reply(text).strip())
 
     def test_own_domain_quoted_message_without_new_text_not_kept(self):
         """
@@ -773,22 +797,29 @@ class EmailMessageTest(unittest.TestCase):
         Tests that ``own_domains`` accepts a single domain string, skips ``None`` and empty entries, and ignores a
         leading ``@``, surrounding whitespace and letter case.
         """
-        cases = [
-            ('company.example', ('company.example',)),
-            (['company.example', None, '', '  '], ('company.example',)),
-            ([' @Company.Example ', '@ other.example'], ('company.example', 'other.example')),
-            ('@company.example', ('company.example',)),
-            (None, ()),
-        ]
-        for own_domains, expected in cases:
-            with self.subTest(own_domains=own_domains):
-                self.assertEqual(expected, EmailMessage('', own_domains=own_domains).own_domains)
+        def forwarded_from(domain):
+            return ('________________________________\nFrom: Agent <agent@' + domain + '>\n'
+                    'Sent: Monday, 3 August 2026 09:15\n\nYour deposit has been returned.\n')
 
-        text = ('________________________________\nFrom: Agent <agent@company.example>\n'
-                'Sent: Monday, 3 August 2026 09:15\n\nYour deposit has been returned.\n')
-        for own_domains in ('company.example', ' @company.example ', [None, '@company.example']):
+        own_cases = [
+            ('company.example', 'company.example'),
+            (['company.example', None, '', '  '], 'company.example'),
+            ([' @Company.Example ', '@ other.example'], 'company.example'),
+            ([' @Company.Example ', '@ other.example'], 'other.example'),
+            ('@company.example', 'company.example'),
+            (' @company.example ', 'company.example'),
+            ([None, '@company.example'], 'company.example'),
+        ]
+        for own_domains, sender_domain in own_cases:
+            with self.subTest(own_domains=own_domains, sender_domain=sender_domain):
+                self.assertEqual('', EmailReplyParser.cut_off_at_signature(forwarded_from(sender_domain),
+                                                                           own_domains=own_domains))
+
+        for own_domains in (None, [None, '', '  '], '@'):
             with self.subTest(own_domains=own_domains):
-                self.assertEqual('', EmailReplyParser.cut_off_at_signature(text, own_domains=own_domains))
+                self.assertEqual('Your deposit has been returned.',
+                                 EmailReplyParser.cut_off_at_signature(forwarded_from('company.example'),
+                                                                       own_domains=own_domains))
 
 
 if __name__ == '__main__':
