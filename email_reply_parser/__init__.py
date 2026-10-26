@@ -44,20 +44,27 @@ class EmailReplyParser(object):
 
         When the parsed reply is blank, or holds only divider and "Sent from ..." lines, the email is usually a forward
         or quote sent with no new text above it. The boundary at the top of the body is then stripped and the rest
-        parsed again, so the quoted or forwarded message is kept as the reply.
+        parsed again, so the forwarded message is kept as the reply.
+
+        A message below a quote marker (e.g. ``On ... wrote:``) is usually the other side's, so it is kept only when
+        ``own_domains`` is given and its sender is outside them. A forward (a forward marker or header block) is kept
+        unless its sender is in ``own_domains``.
 
         :param text: A string email body.
         :param own_domains: A sender email domain, or a list of them, belonging to the receiving side (e.g. the support
-        mailbox). A quoted message sent from one of these domains or a subdomain of one, or whose sender line carries no
-        email address, is never kept in place of a blank reply.
+        mailbox). A quoted or forwarded message sent from one of these domains or a subdomain of one, or whose sender
+        line carries no email address, is never kept in place of a blank reply.
         :return: An EmailMessage instance.
         """
         message = EmailMessage(text).read()
         if EmailReplyParser._has_content(message.reply):
             return message
 
-        remainder, sender_line = EmailReplyParser._strip_leading_boundary(text)
-        if sender_line is not None and EmailReplyParser._is_own_sender(sender_line, own_domains):
+        domains = EmailReplyParser._normalise_own_domains(own_domains)
+        remainder, sender_line, quoted = EmailReplyParser._strip_leading_boundary(text)
+        if quoted and not domains:
+            return message
+        if sender_line is not None and EmailReplyParser._is_own_sender(sender_line, domains):
             return message
 
         retry = EmailMessage(remainder).read()
@@ -103,12 +110,14 @@ class EmailReplyParser(object):
         recognised header follows it with no blank line between, so such a line below the block stays in the body.
 
         :param text: A string email body.
-        :return: The text below the boundary, and the first line in the boundary naming a sender (a ``From:``-style
-        header joined with any address lines wrapped below it, or a quote marker), or None if the boundary has none.
+        :return: The text below the boundary; the first line in the boundary naming a sender (a ``From:``-style
+        header joined with any address lines wrapped below it, or a quote marker), or None if the boundary has none;
+        and whether the boundary holds a quote marker (one that is not a ``----`` style forward marker).
         """
         lines = text.replace('\r\n', '\n').split('\n')
         sender_line = None
         seen_header = False
+        quoted = False
         index = 0
         while index < len(lines):
             line = lines[index].strip()
@@ -130,8 +139,9 @@ class EmailReplyParser(object):
             if not marker:
                 break
             sender_line = sender_line or marker.group(0).strip()
+            quoted = quoted or not marker.group(0).startswith('-')
             index += marker.group(0).rstrip().count('\n') + 1
-        return '\n'.join(lines[index:]), sender_line
+        return '\n'.join(lines[index:]), sender_line, quoted
 
     @staticmethod
     def _consume_header_block(lines, start: int, after_header: bool):
@@ -183,20 +193,29 @@ class EmailReplyParser(object):
             ':' not in line and EmailReplyParser.EMAIL_ADDRESS_REGEX.search(line)))
 
     @staticmethod
-    def _is_own_sender(sender_line: str, own_domains) -> bool:
+    def _normalise_own_domains(own_domains) -> list:
         """
-        Whether a sender line belongs to the receiving side: ``own_domains`` is set and the line's email address is in
-        one of them or a subdomain of one, or the line carries no email address at all.
+        Normalise the ``own_domains`` argument into a list of lower-case domain names.
 
-        :param sender_line: The line naming the sender of a quoted message.
         :param own_domains: A domain string, an iterable of domain strings, or None. ``None`` and empty entries are
         skipped, and a leading ``@``, surrounding whitespace and letter case are ignored.
-        :return: True if the sender is treated as the receiving side's.
+        :return: The normalised domains, empty if none were given.
         """
         if isinstance(own_domains, str):
             own_domains = [own_domains]
         domains = [(domain or '').strip().lstrip('@').strip().lower() for domain in own_domains or ()]
-        domains = [domain for domain in domains if domain]
+        return [domain for domain in domains if domain]
+
+    @staticmethod
+    def _is_own_sender(sender_line: str, domains: list) -> bool:
+        """
+        Whether a sender line belongs to the receiving side: ``domains`` is not empty and the line's email address is
+        in one of them or a subdomain of one, or the line carries no email address at all.
+
+        :param sender_line: The line naming the sender of a quoted message.
+        :param domains: The receiving side's domains, as returned by ``_normalise_own_domains``.
+        :return: True if the sender is treated as the receiving side's.
+        """
         if not domains:
             return False
 

@@ -113,6 +113,17 @@ class EmailMessageTest(unittest.TestCase):
             text = f.read()
         return EmailReplyParser.read(text)
 
+    @staticmethod
+    def get_email_text(name):
+        """
+        Return the raw text of a fixture email, unparsed.
+
+        :param name: The fixture file name without its extension.
+        :return: The file contents.
+        """
+        with open(f'emails/{name}.txt') as fixture:
+            return fixture.read()
+
     def test_include_signature_true(self):
         # Test that the cut_off_at_signature function ends an email after the sign-off when include = True
         message_english = self.get_email('email_signature')
@@ -523,43 +534,60 @@ class EmailMessageTest(unittest.TestCase):
         Tests that a lone ``Subject:`` line above the reply (as Salesforce stores email bodies) is stripped rather than
         treated as a header that hides the reply below it, while the quoted thread is still cut.
         """
-        message = self.get_email('subject_line_reply')
-        body = EmailReplyParser.cut_off_at_signature(message.text, include=True, word_limit=None)
+        text = self.get_email_text('subject_line_reply')
+        body = EmailReplyParser.cut_off_at_signature(text, include=True, word_limit=None)
 
         assert body.startswith('Hello,\n\nI have uploaded the guarantor form')
         assert body.endswith('Jane Example')
         assert 'Subject:' not in body
         assert 'We still need a guarantor form' not in body
 
-    def test_forward_or_quote_without_new_text_keeps_quoted_message(self):
+    def test_forward_without_new_text_keeps_forwarded_message(self):
         """
-        Tests that when nothing but a divider or a "Sent from ..." line precedes the first quote boundary, the quoted
-        or forwarded message is kept as the reply with its boundary line and header block removed.
+        Tests that when nothing but a divider or a "Sent from ..." line precedes the first forward boundary, the
+        forwarded message is kept as the reply with its boundary line and header block removed, with or without
+        ``own_domains``.
         """
         expected_content = {
             'original_message_no_reply': 'My tenancy ended on 31 July',
             'forwarded_message_no_reply': 'The boiler has stopped working again',
-            'quote_header_no_reply': 'I would like to give notice on my tenancy',
             'outlook_divider_no_reply': "I paid this month's rent yesterday",
             'outlook_device_line_no_reply': 'We moved in today and noticed the inventory',
         }
         for name, content in expected_content.items():
-            with self.subTest(name=name):
-                message = self.get_email(name)
-                body = EmailReplyParser.cut_off_at_signature(message.text, include=True, word_limit=None)
+            for own_domains in (None, ['company.example']):
+                with self.subTest(name=name, own_domains=own_domains):
+                    text = self.get_email_text(name)
+                    body = EmailReplyParser.cut_off_at_signature(text, include=True, word_limit=None,
+                                                                 own_domains=own_domains)
 
-                assert body.startswith('Hello,\n\n' + content), body
-                assert body.endswith('Jane Example'), body
-                for boundary in ('From:', 'Subject:', 'wrote:', '____', '----', 'Sent from Outlook'):
-                    assert boundary not in body, body
+                    assert body.startswith('Hello,\n\n' + content), body
+                    assert body.endswith('Jane Example'), body
+                    for boundary in ('From:', 'Subject:', '____', '----', 'Sent from Outlook'):
+                        assert boundary not in body, body
+
+    def test_quote_without_new_text_kept_only_with_own_domains(self):
+        """
+        Tests that a message below an ``On ... wrote:`` quote marker with nothing written above it stays blank unless
+        ``own_domains`` is given and the quoted sender is outside them, since such a quote is usually the other
+        side's message.
+        """
+        text = self.get_email_text('quote_header_no_reply')
+        self.assertEqual('', EmailReplyParser.cut_off_at_signature(text, include=True, word_limit=None))
+
+        body = EmailReplyParser.cut_off_at_signature(text, include=True, word_limit=None,
+                                                     own_domains=['company.example'])
+        assert body.startswith('Hello,\n\nI would like to give notice on my tenancy'), body
+        assert body.endswith('Jane Example'), body
+        assert 'wrote:' not in body, body
 
     def test_nested_forward_header_block_with_non_standard_lines_stripped(self):
         """
         Tests that a forward of a forward is reduced to its content when the back-to-back header blocks contain lines
         that are not standard headers (a custom ``Ref ID:`` field, a wrapped ``Cc:`` address list).
         """
-        message = self.get_email('nested_forward_header_block')
-        body = EmailReplyParser.cut_off_at_signature(message.text, include=True, word_limit=None)
+        text = self.get_email_text('nested_forward_header_block')
+        body = EmailReplyParser.cut_off_at_signature(text, include=True, word_limit=None)
 
         assert body.startswith("Dear Referencing Team,\n\nI have sent my employer's details twice now"), body
         assert body.endswith('Jane Example'), body
@@ -713,16 +741,20 @@ class EmailMessageTest(unittest.TestCase):
                 self.assertEqual('Your deposit has been returned.',
                                  EmailReplyParser.parse_reply(text, own_domains=own_domains).strip())
 
-    def test_own_domains_unset_keeps_quoted_message(self):
+    def test_own_domains_unset_keeps_forward_but_not_quote(self):
         """
-        Tests that without ``own_domains`` a quoted message with no new text above it is kept whoever sent it.
+        Tests that without ``own_domains`` a forwarded message with no new text above it is kept whoever sent it,
+        while a message below an ``On ... wrote:`` quote marker stays blank, since it is usually the other side's.
         """
-        text = ('Sent from my iPhone\n\nOn Mon, 3 Aug 2026 at 09:15, Support <help@company.example> wrote:\n'
-                'Your deposit has been returned.\n')
+        forward = ('Sent from my iPhone\n\n________________________________\nFrom: Support <help@company.example>\n'
+                   'Sent: Monday, 3 August 2026 09:15\nSubject: Deposit\n\nYour deposit has been returned.\n')
+        quote = ('Sent from my iPhone\n\nOn Mon, 3 Aug 2026 at 09:15, Support <help@company.example> wrote:\n'
+                 'Your deposit has been returned.\n')
         for own_domains in (None, []):
             with self.subTest(own_domains=own_domains):
                 self.assertEqual('Your deposit has been returned.',
-                                 EmailReplyParser.parse_reply(text, own_domains=own_domains).strip())
+                                 EmailReplyParser.cut_off_at_signature(forward, own_domains=own_domains))
+                self.assertEqual('', EmailReplyParser.cut_off_at_signature(quote, own_domains=own_domains))
 
     def test_third_party_quoted_message_kept_with_own_domains(self):
         """
@@ -760,21 +792,24 @@ class EmailMessageTest(unittest.TestCase):
 
     def test_sender_without_address_treated_as_own_with_own_domains(self):
         """
-        Tests that a quoted message whose sender line carries no email address is treated as the receiving side's own
-        when ``own_domains`` is set, and is still kept when it is not.
+        Tests that a quoted or forwarded message whose sender line carries no email address is treated as the receiving
+        side's own when ``own_domains`` is set; without it a forward is still kept and a quote stays blank.
         """
         body = 'Your deposit has been returned.\n'
-        texts = [
+        forwards = [
             ('________________________________\nFrom: Lettings Team\nSent: Monday, 3 August 2026 09:15\n'
              'Subject: Deposit\n\n' + body),
             '________________________________\n*From:* Lettings Team\n*Sent:* Monday, 3 August 2026 09:15\n\n' + body,
             'From: Lettings Team\nDate: Mon, 3 Aug 2026\nSubject: Deposit\n\n' + body,
-            'Sent from my iPhone\n\nOn Mon, 3 Aug 2026 at 09:15, Lettings Team wrote:\n' + body,
         ]
-        for text in texts:
+        for text in forwards:
             with self.subTest(text=text):
                 self.assertEqual('', EmailReplyParser.cut_off_at_signature(text, own_domains=['company.example']))
                 self.assertEqual('Your deposit has been returned.', EmailReplyParser.cut_off_at_signature(text))
+
+        quote = 'Sent from my iPhone\n\nOn Mon, 3 Aug 2026 at 09:15, Lettings Team wrote:\n' + body
+        self.assertEqual('', EmailReplyParser.cut_off_at_signature(quote, own_domains=['company.example']))
+        self.assertEqual('', EmailReplyParser.cut_off_at_signature(quote))
 
     def test_boundary_without_sender_line_kept_with_own_domains(self):
         """
@@ -786,8 +821,8 @@ class EmailMessageTest(unittest.TestCase):
         self.assertEqual('Your deposit has been returned.',
                          EmailReplyParser.cut_off_at_signature(text, own_domains=['company.example']))
 
-        message = self.get_email('subject_line_reply')
-        body = EmailReplyParser.cut_off_at_signature(message.text, include=True, word_limit=None,
+        text = self.get_email_text('subject_line_reply')
+        body = EmailReplyParser.cut_off_at_signature(text, include=True, word_limit=None,
                                                      own_domains=['company.example'])
         assert body.startswith('Hello,\n\nI have uploaded the guarantor form'), body
         assert body.endswith('Jane Example'), body
