@@ -5,7 +5,7 @@
 """
 
 import re
-from typing import Optional, List, Dict
+from typing import Iterable, Optional, List, Dict, Union
 import unidecode
 
 UNIDECODE_EXCEPTIONS = {
@@ -32,13 +32,15 @@ class EmailReplyParser(object):
     # by ``//`` is a URL scheme, not a label.
     HEADER_LABEL_REGEX = re.compile(r"^[A-Z][\w-]*( [\w-]+){0,3}:(?!//)")
     EMAIL_ADDRESS_REGEX = re.compile(r"[\w.+'-]+@[\w-]+(\.[\w-]+)+")
+    # The one boundary marker that is a forward rather than a reply, e.g. ``---------- Forwarded message ---------``.
+    FORWARD_MARKER_REGEX = re.compile(r"^-+\s?Forwarded.?Message", flags=re.IGNORECASE)
     # ``EmailMessage.HEADER_REGEX`` keywords that name the sender of a quoted message.
     SENDER_HEADER_KEYWORDS = frozenset(
         ("From", "Da", "Från", "Fran", "Von", "Lähettäjä", "Lahettaja", "Fra", "De", "De la", "Από το", "من")
     )
 
     @staticmethod
-    def read(text, *, own_domains=None):
+    def read(text, *, own_domains: Optional[Union[str, Iterable[str]]] = None):
         """
         Factory method that splits email into list of fragments.
 
@@ -46,9 +48,10 @@ class EmailReplyParser(object):
         or quote sent with no new text above it. The boundary at the top of the body is then stripped and the rest
         parsed again, so the forwarded message is kept as the reply.
 
-        A message below a quote marker (e.g. ``On ... wrote:``) is usually the other side's, so it is kept only when
-        ``own_domains`` is given and its sender is outside them. A forward (a forward marker or header block) is kept
-        unless its sender is in ``own_domains``.
+        Only a boundary with no sender line, or one carrying a ``Forwarded message`` marker, is kept by default: a
+        quote marker (``On ... wrote:``) or a divider above a header block is how Gmail and Outlook write a reply, so
+        the message below it is usually the other side's. Those are kept only when ``own_domains`` is given and the
+        sender is outside them.
 
         :param text: A string email body.
         :param own_domains: A sender email domain, or a list of them, belonging to the receiving side (e.g. the support
@@ -61,17 +64,18 @@ class EmailReplyParser(object):
             return message
 
         domains = EmailReplyParser._normalise_own_domains(own_domains)
-        remainder, sender_line, quoted = EmailReplyParser._strip_leading_boundary(text)
-        if quoted and not domains:
-            return message
-        if sender_line is not None and EmailReplyParser._is_own_sender(sender_line, domains):
-            return message
+        remainder, sender_line, forwarded = EmailReplyParser._strip_leading_boundary(text)
+        if sender_line is not None:
+            if not forwarded and not domains:
+                return message
+            if EmailReplyParser._is_own_sender(sender_line, domains):
+                return message
 
         retry = EmailMessage(remainder).read()
         return retry if EmailReplyParser._has_content(retry.reply) else message
 
     @staticmethod
-    def parse_reply(text, *, own_domains=None):
+    def parse_reply(text, *, own_domains: Optional[Union[str, Iterable[str]]] = None):
         """
         Provides the reply portion of email.
 
@@ -83,7 +87,7 @@ class EmailReplyParser(object):
 
     @staticmethod
     def cut_off_at_signature(body: str, include: Optional[bool] = True, word_limit: Optional[int] = 1000, *,
-                             own_domains=None):
+                             own_domains: Optional[Union[str, Iterable[str]]] = None):
         """
         Remove the signature section from an email, and use the email Reply Parser to try to remove any
         "thread" content.
@@ -112,12 +116,12 @@ class EmailReplyParser(object):
         :param text: A string email body.
         :return: The text below the boundary; the first line in the boundary naming a sender (a ``From:``-style
         header joined with any address lines wrapped below it, or a quote marker), or None if the boundary has none;
-        and whether the boundary holds a quote marker (one that is not a ``----`` style forward marker).
+        and whether the boundary holds a ``Forwarded message`` marker.
         """
         lines = text.replace('\r\n', '\n').split('\n')
         sender_line = None
         seen_header = False
-        quoted = False
+        forwarded = False
         index = 0
         while index < len(lines):
             line = lines[index].strip()
@@ -131,6 +135,10 @@ class EmailReplyParser(object):
                 # A label or address line with no header below it is body text, so the boundary ends above it.
                 break
 
+            if EmailReplyParser.FORWARD_MARKER_REGEX.match(line):
+                forwarded = True
+                index += 1
+                continue
             if not line or EmailReplyParser._is_divider_or_device_line(line):
                 index += 1
                 continue
@@ -139,9 +147,8 @@ class EmailReplyParser(object):
             if not marker:
                 break
             sender_line = sender_line or marker.group(0).strip()
-            quoted = quoted or not marker.group(0).startswith('-')
             index += marker.group(0).rstrip().count('\n') + 1
-        return '\n'.join(lines[index:]), sender_line, quoted
+        return '\n'.join(lines[index:]), sender_line, forwarded
 
     @staticmethod
     def _consume_header_block(lines, start: int, after_header: bool):
