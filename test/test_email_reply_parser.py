@@ -621,6 +621,20 @@ class EmailMessageTest(unittest.TestCase):
                 text = first_line + '\n\nThe rest of my reply.'
                 self.assertEqual('The rest of my reply.', EmailReplyParser.parse_reply(text))
 
+    def test_reply_starting_with_dashes_is_not_blank(self):
+        """
+        Tests that a reply whose only line starts with ``--`` or ``__`` is content, so it is kept as the ordinary parse
+        gives it rather than replaced by the quoted or forwarded message below it.
+        """
+        reply = ('--Please find the signed form attached.\n\n________________________________\n'
+                 'From: Support <support@company.example>\nSent: Monday\nSubject: RE: Deposit\n\nPlease sign the form.\n')
+        forward = ('__ signed form attached __\n\n---------- Forwarded message ---------\n'
+                   'From: Jane Example <jane.example@example.com>\nSubject: Deposit\n\nOld text\n')
+        cases = [(reply, ['other.example']), (forward, None)]
+        for text, own_domains in cases:
+            with self.subTest(first_line=text.split('\n')[0]):
+                self.assertEqual(text.split('\n')[0], EmailReplyParser.parse_reply(text, own_domains=own_domains))
+
     def test_reply_with_content_unchanged_from_ordinary_parse(self):
         """
         Tests that a reply the ordinary parse finds content in, including one opening with a short header word or

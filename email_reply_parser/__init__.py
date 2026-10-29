@@ -34,6 +34,11 @@ class EmailReplyParser(object):
     EMAIL_ADDRESS_REGEX = re.compile(r"[\w.+'-]+@[\w-]+(\.[\w-]+)+")
     # The one boundary marker that is a forward rather than a reply, e.g. ``---------- Forwarded message ---------``.
     FORWARD_MARKER_REGEX = re.compile(r"^-+\s?Forwarded.?Message", flags=re.IGNORECASE)
+    # A whole line of ``-``, ``_`` or ``*`` characters, or an ``-----Original Message-----`` marker. A line that
+    # merely starts with ``--`` or ``__`` is reply text.
+    DIVIDER_REGEX = re.compile(
+        r"^(?:[-_*\s]+|-+\s*(?:Ursprüngliche|Original).?(?:Nachricht|Message)\s*-+)$", flags=re.IGNORECASE
+    )
     # ``EmailMessage.HEADER_REGEX`` keywords that name the sender of a quoted message.
     SENDER_HEADER_KEYWORDS = frozenset(
         ("From", "Da", "Från", "Fran", "Von", "Lähettäjä", "Lahettaja", "Fra", "De", "De la", "Από το", "من")
@@ -51,7 +56,8 @@ class EmailReplyParser(object):
         Only a boundary with no sender line, or one carrying a ``Forwarded message`` marker, is kept by default: a
         quote marker (``On ... wrote:``) or a divider above a header block is how Gmail and Outlook write a reply, so
         the message below it is usually the other side's. Those are kept only when ``own_domains`` is given and the
-        sender is outside them.
+        sender is outside them. When the fallback is used, the returned message's ``text`` and ``fragments`` come from
+        the body below the boundary, not the original body.
 
         :param text: A string email body.
         :param own_domains: A sender email domain, or a list of them, belonging to the receiving side (e.g. the support
@@ -247,11 +253,17 @@ class EmailReplyParser(object):
     def _is_divider_or_device_line(line: str) -> bool:
         """
         Whether a stripped line is a divider (e.g. ``____``, ``-----Original Message-----``) or "Sent from ..." line.
+        A line that only starts with ``--`` or ``__`` is reply text, not a divider.
 
         :param line: The stripped line to check.
         :return: True if the line is a divider or device line.
         """
-        return EmailMessage.SENT_FROM_DEVICE_REGEX.match(unidecode.unidecode(line)) is not None
+        plain = unidecode.unidecode(line)
+        if EmailReplyParser.DIVIDER_REGEX.match(plain):
+            return True
+        device = EmailMessage.SENT_FROM_DEVICE_REGEX.match(plain)
+        # Group 1 is the loose ``--`` / ``__`` prefix alternative, which the divider regex above replaces.
+        return device is not None and device.group(1) is None
 
 
 class EmailMessage(object):
