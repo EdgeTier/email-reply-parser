@@ -4,7 +4,7 @@ import unittest
 import time
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
-from email_reply_parser import EmailReplyParser
+from email_reply_parser import EmailMessage, EmailReplyParser
 
 
 class EmailMessageTest(unittest.TestCase):
@@ -112,6 +112,17 @@ class EmailMessageTest(unittest.TestCase):
         with open('emails/%s.txt' % name) as f:
             text = f.read()
         return EmailReplyParser.read(text)
+
+    @staticmethod
+    def get_email_text(name):
+        """
+        Return the raw text of a fixture email, unparsed.
+
+        :param name: The fixture file name without its extension.
+        :return: The file contents.
+        """
+        with open(f'emails/{name}.txt') as fixture:
+            return fixture.read()
 
     def test_include_signature_true(self):
         # Test that the cut_off_at_signature function ends an email after the sign-off when include = True
@@ -518,6 +529,191 @@ class EmailMessageTest(unittest.TestCase):
         assert '**. . . . . . . . . .**' not in body
         assert '4Y5JPX' not in body
 
+    def test_single_subject_line_above_reply_stripped(self):
+        """
+        Tests that a lone ``Subject:`` line above the reply (as Salesforce stores email bodies) is stripped rather than
+        treated as a header that hides the reply below it, while the quoted thread is still cut.
+        """
+        text = self.get_email_text('subject_line_reply')
+        body = EmailReplyParser.cut_off_at_signature(text, include=True, word_limit=None)
+
+        assert body.startswith('Hello,\n\nI have uploaded the guarantor form')
+        assert body.endswith('Jane Example')
+        assert 'Subject:' not in body
+        assert 'We still need a guarantor form' not in body
+
+    def test_forward_without_new_text_keeps_forwarded_message(self):
+        """
+        Tests that when nothing but a divider, a "Sent from ..." line or a lone ``Subject:`` line precedes the first
+        forward boundary, the forwarded message is kept as the reply with its boundary line and header block removed.
+        Without ``own_domains`` only a ``Forwarded message`` marker is trusted; a divider or ``Original Message``
+        marker above a header block is also how Outlook writes a reply, so those need ``own_domains`` to rule the
+        sender out.
+        """
+        expected_content = {
+            'original_message_no_reply': 'My tenancy ended on 31 July',
+            'forwarded_message_no_reply': 'The boiler has stopped working again',
+            'outlook_divider_no_reply': "I paid this month's rent yesterday",
+            'outlook_device_line_no_reply': 'We moved in today and noticed the inventory',
+        }
+        for name, content in expected_content.items():
+            for own_domains in (None, ['company.example']):
+                with self.subTest(name=name, own_domains=own_domains):
+                    text = self.get_email_text(name)
+                    body = EmailReplyParser.cut_off_at_signature(text, include=True, word_limit=None,
+                                                                 own_domains=own_domains)
+                    if own_domains is None and name != 'forwarded_message_no_reply':
+                        self.assertEqual('', body)
+                        continue
+
+                    assert body.startswith('Hello,\n\n' + content), body
+                    assert body.endswith('Jane Example'), body
+                    for boundary in ('From:', 'Subject:', '____', '----', 'Sent from Outlook'):
+                        assert boundary not in body, body
+
+        text = ('Subject: Fwd: Boiler\n\n---------- Forwarded message ---------\n'
+                'From: Jane Example <jane.example@example.com>\nDate: Wed, 5 Aug 2026 at 11:20\nSubject: Boiler\n\n'
+                'The boiler has stopped working again.\n')
+        self.assertEqual('The boiler has stopped working again.', EmailReplyParser.parse_reply(text).strip())
+
+    def test_nested_forward_header_block_with_non_standard_lines_stripped(self):
+        """
+        Tests that a forward of a forward is reduced to its content when the back-to-back header blocks contain lines
+        that are not standard headers (a custom ``Ref ID:`` field, a wrapped ``Cc:`` address list), and that the older
+        thread below that content is still cut.
+        """
+        text = self.get_email_text('nested_forward_header_block')
+        body = EmailReplyParser.cut_off_at_signature(text, include=True, word_limit=None)
+
+        assert body.startswith("Dear Referencing Team,\n\nI have sent my employer's details twice now"), body
+        assert body.endswith('Jane Example'), body
+        for header in ('Ref ID:', 'Importance:', 'agent.desk@example.com', 'awaiting your employer'):
+            assert header not in body, body
+
+    def test_header_like_reply_line_near_header_block_preserved(self):
+        """
+        Tests that a ``Label:`` line or an email address is kept as reply text when it sits directly below a header
+        block, or above quoted headers with a blank line between, since only lines with a recognised header directly
+        below them are treated as part of a block.
+        """
+        for first_reply_line in ('Move-in date: next Friday', 'Viewing at 10:30 suits me',
+                                 'Please reply to jane.example@example.com'):
+            with self.subTest(first_reply_line=first_reply_line):
+                text = ('From: Jane Example <jane.example@example.com>\nSubject: Keys\n' + first_reply_line
+                        + '\nWhere should I collect the keys?\n')
+                self.assertEqual(first_reply_line + '\nWhere should I collect the keys?',
+                                 EmailReplyParser.parse_reply(text).strip())
+
+        text = ('Subject: Keys\n\nCollection time: 10am works for me\n\n'
+                'From: Lettings Team <lettings@example.com>\nSent: Monday, 3 August 2026 09:15\n\nCan you do 10am?\n')
+        for own_domains in (None, ['example.com']):
+            with self.subTest(own_domains=own_domains):
+                self.assertEqual('Collection time: 10am works for me',
+                                 EmailReplyParser.parse_reply(text, own_domains=own_domains).strip())
+
+    def test_single_short_keyword_header_line_does_not_blank_reply(self):
+        """
+        Tests that a reply opening with a header-like line using a short keyword (``A:``, ``De:``, ``To:``), which the
+        ordinary parse reads as a header hiding everything below it, still keeps the text below that line.
+        """
+        for first_line in ('A: yes, please go ahead', 'To: the lettings team'):
+            with self.subTest(first_line=first_line):
+                text = first_line + '\n\nThe rest of my reply.'
+                self.assertEqual('The rest of my reply.', EmailReplyParser.parse_reply(text))
+
+    def test_reply_starting_with_dashes_is_not_blank(self):
+        """
+        Tests that a reply whose only line starts with ``--`` or ``__`` is content, so it is kept as the ordinary parse
+        gives it rather than replaced by the quoted or forwarded message below it.
+        """
+        reply = ('--Please find the signed form attached.\n\n________________________________\n'
+                 'From: Support <support@company.example>\nSent: Monday\nSubject: RE: Deposit\n\nPlease sign the form.\n')
+        forward = ('__ signed form attached __\n\n---------- Forwarded message ---------\n'
+                   'From: Jane Example <jane.example@example.com>\nSubject: Deposit\n\nOld text\n')
+        cases = [(reply, ['other.example']), (forward, None)]
+        for text, own_domains in cases:
+            with self.subTest(first_line=text.split('\n')[0]):
+                self.assertEqual(text.split('\n')[0], EmailReplyParser.parse_reply(text, own_domains=own_domains))
+
+    def test_reply_with_content_unchanged_from_ordinary_parse(self):
+        """
+        Tests that a reply the ordinary parse finds content in, including one opening with a short header word or
+        written above a forward or quote boundary, is returned exactly as the ordinary parse gives it.
+        """
+        texts = [
+            ('Thanks, that works for me.\n\n'
+             'On Mon, 3 Aug 2026 at 09:15, Lettings Team <lettings@example.com> wrote:\nHi\n'),
+            ('Thanks, that works for me.\n________________________________\n'
+             'From: Lettings Team <lettings@example.com>\nSent: Monday, 3 August 2026 09:15\nSubject: Viewing\n\n'
+             'Can you do Tuesday?\n'),
+            ('A quick question about my deposit.\n\n'
+             'From: Lettings Team <lettings@example.com>\nSubject: Deposit\n\nHi\n'),
+            ('To the team, thanks.\n\n-----Original Message-----\nFrom: Lettings Team <lettings@example.com>\n'
+             'Subject: Viewing\n\nCan you do Tuesday?\n'),
+        ]
+        for text in texts:
+            with self.subTest(text=text):
+                reply = EmailReplyParser.parse_reply(text, own_domains=['example.com'])
+                self.assertEqual(text.split('\n')[0], reply)
+                self.assertEqual(EmailMessage(text).read().reply, reply)
+
+    def test_own_domains_decides_whether_quoted_or_forwarded_message_is_kept(self):
+        """
+        Tests the rule for a blank reply above a boundary. Without ``own_domains``, a message is kept only below a
+        ``Forwarded message`` marker or a boundary with no sender line; an Outlook-style reply (divider above a header
+        block), an ``On ... wrote:`` quote and a header block at the top stay blank, since they are how a reply quotes
+        the other side. With ``own_domains``, all of those are kept when the sender is outside the domains, and a
+        ``>``-quoted message never is. A sender in a subdomain, in any letter case, or with no email address at all
+        counts as inside; a domain that merely ends with an own domain's name does not. A single domain string is
+        accepted.
+        """
+        body = 'Your deposit has been returned.'
+        kept = body
+
+        def quote(sender):
+            return 'Sent from my iPhone\n\nOn Mon, 3 Aug 2026 at 09:15, ' + sender + ' wrote:\n' + body + '\n'
+
+        def reply(sender, divider='________________________________\n'):
+            return (divider + 'From: ' + sender + '\nSent: Monday, 3 August 2026 09:15\nSubject: RE: Deposit\n\n'
+                    + body + '\n')
+
+        def forward(sender):
+            return reply(sender, divider='---------- Forwarded message ---------\n')
+
+        # A header block at the top with no divider, in a shape the ordinary parse does not strip itself.
+        start_block = 'From: Lettings Team <lettings@company.example>\nDate: Mon, 3 Aug 2026\nSubject: Deposit\n\n' + body
+        angle_quote = 'On Mon, 3 Aug 2026 at 09:15, Jane <jane@example.com> wrote:\n> ' + body + '\n'
+        no_sender = 'Sent from my iPhone\n\n-----Original Message-----\nSent: Monday, 3 August 2026 09:15\n\n' + body
+
+        cases = [
+            (quote('Support <help@company.example>'), None, ''),
+            (quote('Support <help@company.example>'), ['other.example'], kept),
+            (quote('Support <help@company.example>'), ['company.example'], ''),
+            (quote('Support <help@company.example>'), 'company.example', ''),
+            (quote('Lettings Team'), ['company.example'], ''),
+            (angle_quote, None, ''),
+            (angle_quote, ['company.example'], ''),
+            (reply('Support <support@company.example>'), None, ''),
+            (reply('Support <support@company.example>'), ['other.example'], kept),
+            (reply('Support <support@company.example>'), ['company.example'], ''),
+            (reply('Support <support@company.example>', divider='-----Original Message-----\n'), None, ''),
+            (forward('Agent <agent@mail.company.example>'), None, kept),
+            (forward('Agent <agent@mail.company.example>'), ['company.example'], ''),
+            (forward('Agent <agent@Company.Example>'), ['company.example'], ''),
+            (forward('Jane <jane@notcompany.example>'), ['company.example'], kept),
+            (start_block, None, ''),
+            (start_block, ['other.example'], kept),
+            (start_block, ['company.example'], ''),
+            (forward('Lettings Team'), None, kept),
+            (forward('Lettings Team'), ['company.example'], ''),
+            (reply('Jane Example <\njane@example.com>'), ['company.example'], kept),
+            (reply('Jane Example <\nlettings@company.example>'), ['company.example'], ''),
+            (no_sender, None, kept),
+            (no_sender, ['company.example'], kept),
+        ]
+        for text, own_domains, expected in cases:
+            with self.subTest(text=text, own_domains=own_domains):
+                self.assertEqual(expected, EmailReplyParser.cut_off_at_signature(text, own_domains=own_domains))
 
 if __name__ == '__main__':
     unittest.main()

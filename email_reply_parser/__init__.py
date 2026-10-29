@@ -5,7 +5,7 @@
 """
 
 import re
-from typing import Optional, List, Dict
+from typing import Iterable, Optional, List, Dict, Union
 import unidecode
 
 UNIDECODE_EXCEPTIONS = {
@@ -25,29 +25,75 @@ UNIDECODE_EXCEPTIONS = {
 class EmailReplyParser(object):
     """ Represents an email message that is parsed.
     """
+    # Header lines found in quoted or forwarded header blocks that ``EmailMessage.HEADER_REGEX`` does not recognise,
+    # in the plain, ``*X:*`` and ``**X:**`` forms.
+    EXTRA_HEADER_REGEX = re.compile(r"^\**(Date|Cc|Bcc|Received|Reply-To|Importance)\**:")
+    # A short custom ``Label:`` field inside a header block (e.g. ``Ref ID: 123`` or ``Ref ID:123``). A colon followed
+    # by ``//`` is a URL scheme, not a label.
+    HEADER_LABEL_REGEX = re.compile(r"^[A-Z][\w-]*( [\w-]+){0,3}:(?!//)")
+    EMAIL_ADDRESS_REGEX = re.compile(r"[\w.+'-]+@[\w-]+(\.[\w-]+)+")
+    # The one boundary marker that is a forward rather than a reply, e.g. ``---------- Forwarded message ---------``.
+    FORWARD_MARKER_REGEX = re.compile(r"^-+\s?Forwarded.?Message", flags=re.IGNORECASE)
+    # A whole line of ``-``, ``_`` or ``*`` characters, or an ``-----Original Message-----`` marker. A line that
+    # merely starts with ``--`` or ``__`` is reply text.
+    DIVIDER_REGEX = re.compile(
+        r"^(?:[-_*\s]+|-+\s*(?:Ursprüngliche|Original).?(?:Nachricht|Message)\s*-+)$", flags=re.IGNORECASE
+    )
+    # ``EmailMessage.HEADER_REGEX`` keywords that name the sender of a quoted message.
+    SENDER_HEADER_KEYWORDS = frozenset(
+        ("From", "Da", "Från", "Fran", "Von", "Lähettäjä", "Lahettaja", "Fra", "De", "De la", "Από το", "من")
+    )
 
     @staticmethod
-    def read(text):
-        """ Factory method that splits email into list of fragments
-
-            text - A string email body
-
-            Returns an EmailMessage instance
+    def read(text, *, own_domains: Optional[Union[str, Iterable[str]]] = None):
         """
-        return EmailMessage(text).read()
+        Factory method that splits email into list of fragments.
 
-    @staticmethod
-    def parse_reply(text):
-        """ Provides the reply portion of email.
+        When the parsed reply is blank, or holds only divider and "Sent from ..." lines, the email is usually a forward
+        or quote sent with no new text above it. The boundary at the top of the body is then stripped and the rest
+        parsed again, so the forwarded message is kept as the reply.
 
-            text - A string email body
+        Only a boundary with no sender line, or one carrying a ``Forwarded message`` marker, is kept by default: a
+        quote marker (``On ... wrote:``) or a divider above a header block is how Gmail and Outlook write a reply, so
+        the message below it is usually the other side's. Those are kept only when ``own_domains`` is given and the
+        sender is outside them. When the fallback is used, the returned message's ``text`` and ``fragments`` come from
+        the body below the boundary, not the original body.
 
-            Returns reply body message
+        :param text: A string email body.
+        :param own_domains: A sender email domain, or a list of them, belonging to the receiving side (e.g. the support
+        mailbox). A quoted or forwarded message sent from one of these domains or a subdomain of one, or whose sender
+        line carries no email address, is never kept in place of a blank reply.
+        :return: An EmailMessage instance.
         """
-        return EmailReplyParser.read(text).reply
+        message = EmailMessage(text).read()
+        if EmailReplyParser._has_content(message.reply):
+            return message
+
+        domains = EmailReplyParser._normalise_own_domains(own_domains)
+        remainder, sender_line, forwarded = EmailReplyParser._strip_leading_boundary(text)
+        if sender_line is not None:
+            if not forwarded and not domains:
+                return message
+            if EmailReplyParser._is_own_sender(sender_line, domains):
+                return message
+
+        retry = EmailMessage(remainder).read()
+        return retry if EmailReplyParser._has_content(retry.reply) else message
 
     @staticmethod
-    def cut_off_at_signature(body: str, include: Optional[bool] = True, word_limit: Optional[int] = 1000):
+    def parse_reply(text, *, own_domains: Optional[Union[str, Iterable[str]]] = None):
+        """
+        Provides the reply portion of email.
+
+        :param text: A string email body.
+        :param own_domains: Sender email domains belonging to the receiving side; see ``read``.
+        :return: The reply body message.
+        """
+        return EmailReplyParser.read(text, own_domains=own_domains).reply
+
+    @staticmethod
+    def cut_off_at_signature(body: str, include: Optional[bool] = True, word_limit: Optional[int] = 1000, *,
+                             own_domains: Optional[Union[str, Iterable[str]]] = None):
         """
         Remove the signature section from an email, and use the email Reply Parser to try to remove any
         "thread" content.
@@ -58,10 +104,166 @@ class EmailReplyParser(object):
         :param word_limit: If we set the word-limit to None the string will not be split and line breaks will
         be retained. If a word-limit is set, the email will be cut-off after that limit if a signature is not
         found before that point. Default = 100.
+        :param own_domains: Sender email domains belonging to the receiving side; see ``EmailReplyParser.read``.
+        :return: The cleaned reply body, cut off at the signature and stripped of surrounding whitespace.
         """
-        parsed_email = EmailReplyParser.parse_reply(body)
+        parsed_email = EmailReplyParser.parse_reply(body, own_domains=own_domains)
         cleaned_email = EmailMessage.clean_email_content(parsed_email, include, word_limit)
         return cleaned_email.strip()
+
+    @staticmethod
+    def _strip_leading_boundary(text: str):
+        """
+        Strip the forward or quote boundary at the top of an email body: a leading run of blank, divider and
+        "Sent from ..." lines, quote markers (e.g. ``On ... wrote:``) and header blocks, including blank lines between
+        nested blocks. A custom ``Label:`` line or a wrapped address-list line belongs to a header block only when a
+        recognised header follows it with no blank line between, so such a line below the block stays in the body.
+
+        :param text: A string email body.
+        :return: The text below the boundary; the first line in the boundary naming a sender (a ``From:``-style
+        header joined with any address lines wrapped below it, or a quote marker), or None if the boundary has none;
+        and whether the boundary holds a ``Forwarded message`` marker.
+        """
+        lines = text.replace('\r\n', '\n').split('\n')
+        sender_line = None
+        seen_header = False
+        forwarded = False
+        index = 0
+        while index < len(lines):
+            line = lines[index].strip()
+            block_end, block_sender_line = EmailReplyParser._consume_header_block(lines, index, seen_header)
+            if block_end > index:
+                sender_line = sender_line or block_sender_line
+                seen_header = True
+                index = block_end
+                continue
+            if seen_header and EmailReplyParser._is_header_continuation(line):
+                # A label or address line with no header below it is body text, so the boundary ends above it.
+                break
+
+            if EmailReplyParser.FORWARD_MARKER_REGEX.match(line):
+                forwarded = True
+                index += 1
+                continue
+            if not line or EmailReplyParser._is_divider_or_device_line(line):
+                index += 1
+                continue
+            # A quote marker may wrap onto a second line (e.g. ``On ... <address>\nwrote:``).
+            marker = EmailMessage.MULTI_QUOTE_HDR_REGEX.match('\n'.join(lines[index:index + 2]).lstrip())
+            if not marker:
+                break
+            sender_line = sender_line or marker.group(0).strip()
+            index += marker.group(0).rstrip().count('\n') + 1
+        return '\n'.join(lines[index:]), sender_line, forwarded
+
+    @staticmethod
+    def _consume_header_block(lines, start: int, after_header: bool):
+        """
+        Consume one header block starting at ``start``: a run of header lines and the custom ``Label:`` or wrapped
+        address-list lines between them. A run of such lines below the last header line is not part of the block.
+
+        :param lines: The lines of the email body.
+        :param start: The index of the line to start from.
+        :param after_header: Whether a header block has already been consumed above ``start``, so that the block may
+        open with a label or address line.
+        :return: The index just below the block's last header line (``start`` if it has none), and the block's sender
+        line: its first ``From:``-style header joined with the label or address lines wrapped below it, or None.
+        """
+        block_end = start
+        sender_line = None
+        # Lines wrapped below the sender header, joined to it once the next header line shows they are in the block.
+        sender_wrap = None
+        index = start
+        while index < len(lines):
+            line = lines[index].strip()
+            header = EmailMessage.HEADER_REGEX.match(line)
+            if header or EmailReplyParser.EXTRA_HEADER_REGEX.match(line):
+                if sender_wrap:
+                    sender_line = ' '.join([sender_line] + sender_wrap)
+                sender_wrap = None
+                if sender_line is None and header and header.group(4) in EmailReplyParser.SENDER_HEADER_KEYWORDS:
+                    sender_line, sender_wrap = line, []
+                index += 1
+                block_end = index
+            elif (after_header or block_end > start) and EmailReplyParser._is_header_continuation(line):
+                if sender_wrap is not None:
+                    sender_wrap.append(line)
+                index += 1
+            else:
+                break
+        return block_end, sender_line
+
+    @staticmethod
+    def _is_header_continuation(line: str) -> bool:
+        """
+        Whether a stripped line may continue a header block: a short custom ``Label:`` field, or a wrapped
+        address-list line with no colon.
+
+        :param line: The stripped line to check.
+        :return: True if the line may continue a header block.
+        """
+        return bool(line) and bool(EmailReplyParser.HEADER_LABEL_REGEX.match(line) or (
+            ':' not in line and EmailReplyParser.EMAIL_ADDRESS_REGEX.search(line)))
+
+    @staticmethod
+    def _normalise_own_domains(own_domains) -> list:
+        """
+        Normalise the ``own_domains`` argument into a list of lower-case domain names.
+
+        :param own_domains: A domain string, an iterable of domain strings, or None. ``None`` and empty entries are
+        skipped, and a leading ``@``, surrounding whitespace and letter case are ignored.
+        :return: The normalised domains, empty if none were given.
+        """
+        if isinstance(own_domains, str):
+            own_domains = [own_domains]
+        domains = [(domain or '').strip().lstrip('@').strip().lower() for domain in own_domains or ()]
+        return [domain for domain in domains if domain]
+
+    @staticmethod
+    def _is_own_sender(sender_line: str, domains: list) -> bool:
+        """
+        Whether a sender line belongs to the receiving side: ``domains`` is not empty and the line's email address is
+        in one of them or a subdomain of one, or the line carries no email address at all.
+
+        :param sender_line: The line naming the sender of a quoted message.
+        :param domains: The receiving side's domains, as returned by ``_normalise_own_domains``.
+        :return: True if the sender is treated as the receiving side's.
+        """
+        if not domains:
+            return False
+
+        address = EmailReplyParser.EMAIL_ADDRESS_REGEX.search(sender_line)
+        if not address:
+            return True
+        sender_domain = address.group(0).rsplit('@', 1)[-1].lower()
+        return any(sender_domain == domain or sender_domain.endswith('.' + domain) for domain in domains)
+
+    @staticmethod
+    def _has_content(reply: str) -> bool:
+        """
+        Whether a parsed reply holds anything besides blank, divider and "Sent from ..." lines.
+
+        :param reply: The parsed reply.
+        :return: True if the reply has content.
+        """
+        return any(line.strip() and not EmailReplyParser._is_divider_or_device_line(line.strip())
+                   for line in reply.split('\n'))
+
+    @staticmethod
+    def _is_divider_or_device_line(line: str) -> bool:
+        """
+        Whether a stripped line is a divider (e.g. ``____``, ``-----Original Message-----``) or "Sent from ..." line.
+        A line that only starts with ``--`` or ``__`` is reply text, not a divider.
+
+        :param line: The stripped line to check.
+        :return: True if the line is a divider or device line.
+        """
+        plain = unidecode.unidecode(line)
+        if EmailReplyParser.DIVIDER_REGEX.match(plain):
+            return True
+        device = EmailMessage.SENT_FROM_DEVICE_REGEX.match(plain)
+        # Group 1 is the loose ``--`` / ``__`` prefix alternative, which the divider regex above replaces.
+        return device is not None and device.group(1) is None
 
 
 class EmailMessage(object):
