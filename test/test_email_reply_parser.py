@@ -685,6 +685,10 @@ class EmailMessageTest(unittest.TestCase):
         angle_quote = 'On Mon, 3 Aug 2026 at 09:15, Jane <jane@example.com> wrote:\n> ' + body + '\n'
         no_sender = 'Sent from my iPhone\n\n-----Original Message-----\nSent: Monday, 3 August 2026 09:15\n\n' + body
 
+        def german_reply(sender):
+            return ('-----Ursprüngliche Nachricht-----\nVon: ' + sender + '\nGesendet: Montag, 3. August 2026 09:15\n'
+                    'Betreff: AW: Kaution\n\n' + body + '\n')
+
         cases = [
             (quote('Support <help@company.example>'), None, ''),
             (quote('Support <help@company.example>'), ['other.example'], kept),
@@ -710,6 +714,9 @@ class EmailMessageTest(unittest.TestCase):
             (reply('Jane Example <\nlettings@company.example>'), ['company.example'], ''),
             (no_sender, None, kept),
             (no_sender, ['company.example'], kept),
+            (german_reply('Jane <jane@example.com>'), None, ''),
+            (german_reply('Jane <jane@example.com>'), ['company.example'], kept),
+            (german_reply('Support <support@company.example>'), ['company.example'], ''),
         ]
         for text, own_domains, expected in cases:
             with self.subTest(text=text, own_domains=own_domains):

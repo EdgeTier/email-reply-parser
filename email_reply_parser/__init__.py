@@ -37,7 +37,7 @@ class EmailReplyParser(object):
     # A whole line of ``-``, ``_`` or ``*`` characters, or an ``-----Original Message-----`` marker. A line that
     # merely starts with ``--`` or ``__`` is reply text.
     DIVIDER_REGEX = re.compile(
-        r"^(?:[-_*\s]+|-+\s*(?:Ursprüngliche|Original).?(?:Nachricht|Message)\s*-+)$", flags=re.IGNORECASE
+        r"^(?:[-_*\s]+|-+\s*(?:Urspr[uü]ngliche|Original).?(?:Nachricht|Message)\s*-+)$", flags=re.IGNORECASE
     )
     # ``EmailMessage.HEADER_REGEX`` keywords that name the sender of a quoted message.
     SENDER_HEADER_KEYWORDS = frozenset(
